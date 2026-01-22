@@ -1,0 +1,165 @@
+{
+  "info": {
+    "name": "Joya Spa Backend - Minimal Collection",
+    "_postman_id": "1a2b3c4d-joya-spa-minimal",
+    "description": "Minimal Postman collection for the Joya Spa Backend routes.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    { "key": "baseUrl", "value": "http://localhost:3000" },
+    { "key": "token", "value": "" }
+  ],
+  "item": [
+    {
+      "name": "Admin - Auth",
+      "item": [
+        {
+          "name": "Login",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"admin@example.com\",\n  \"password\": \"password\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/admin/auth/login",
+              "host": ["{{baseUrl}}"],
+              "path": ["admin", "auth", "login"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Admin - Bookings",
+      "item": [
+        {
+          "name": "List Bookings",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
+            "url": {
+              "raw": "{{baseUrl}}/admin/bookings",
+              "path": ["admin", "bookings"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Admin - Branches",
+      "item": [
+        {
+          "name": "List Branches",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
+            "url": {
+              "raw": "{{baseUrl}}/admin/branches",
+              "path": ["admin", "branches"]
+            }
+          }
+        },
+        {
+          "name": "Create Branch",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{token}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"New Branch\",\n  \"address\": \"123 Main St\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/admin/branches",
+              "path": ["admin", "branches"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Admin - Categories",
+      "item": [
+        {
+          "name": "List Categories",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/admin/categories",
+              "path": ["admin", "categories"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Admin - Services",
+      "item": [
+        {
+          "name": "List Services",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/admin/services",
+              "path": ["admin", "services"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Admin - Pricing",
+      "item": [
+        {
+          "name": "List Pricing",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/admin/pricing",
+              "path": ["admin", "pricing"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Customer - Browse",
+      "item": [
+        {
+          "name": "List Services (Customer)",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/customer/browse/services",
+              "path": ["customer", "browse", "services"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Customer - Bookings",
+      "item": [
+        {
+          "name": "Create Booking",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"serviceId\": \"SERVICE_ID\",\n  \"branchId\": \"BRANCH_ID\",\n  \"date\": \"2026-01-25T10:00:00Z\",\n  \"customerName\": \"Jane Doe\",\n  \"phone\": \"+1234567890\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/customer/bookings",
+              "path": ["customer", "bookings"]
+            }
+          }
+        }
+      ]
+    }
+  ]
+}
