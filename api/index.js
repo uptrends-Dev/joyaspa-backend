@@ -11,7 +11,8 @@ import adminPricingRoutes from "./routes/admin.pricing.routes.js";
 import adminBookingsRoutes from "./routes/admin.bookings.routes.js";
 import customerBrowseRoutes from "./routes/customer.browse.routes.js";
 import customerBookingsRoutes from "./routes/customer.bookings.routes.js";
-import branchesRoutes from "./routes/admin.branches.routes.js"
+import branchesRoutes from "./routes/admin.branches.routes.js";
+import adminDashboardRoutes from "./routes/admin.dashboard.routes.js";
 import swaggerUi from "swagger-ui-express";
 import { swaggerSpec } from "./docs/swagger.js";
 
@@ -34,15 +35,18 @@ const corsOptions = {
 
 app.use(cors(corsOptions));
 app.use(express.json());
-app.use(morgan(":method :status - :response-time ms :url :res[content-length] "));
+app.use(
+  morgan(":method :status - :response-time ms :url :res[content-length] "),
+);
 
 // Routes
 app.use("/api/admin/auth", adminAuthRoutes);
 app.use("/api/admin/categories", adminCategoriesRoutes);
 app.use("/api/admin/services", adminServicesRoutes);
 app.use("/api/admin/pricing", adminPricingRoutes);
-app.use("/api/admin/branches", branchesRoutes );
+app.use("/api/admin/branches", branchesRoutes);
 app.use("/api/admin/bookings", adminBookingsRoutes);
+app.use("/api/admin/dashboard", adminDashboardRoutes);
 app.use("/api/customer/browse", customerBrowseRoutes);
 app.use("/api/customer/bookings", customerBookingsRoutes);
 
@@ -50,7 +54,7 @@ app.use("/api/customer/bookings", customerBookingsRoutes);
 app.use(globalErrorHandler);
 
 app.listen(process.env.PORT, () =>
-  console.log(`Server running on port ${process.env.PORT}`)
+  console.log(`Server running on port ${process.env.PORT}`),
 );
 app.use("/api-docs", swaggerUi.serve, swaggerUi.setup(swaggerSpec));
 
