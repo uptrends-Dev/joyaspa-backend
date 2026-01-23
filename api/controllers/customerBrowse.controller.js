@@ -6,11 +6,17 @@ export const customerBrowseController = {
   // GET /api/customer/browse/branches/:branchId/services
   getServicesByBranchId: catchAsync(async (req, res, next) => {
     const { branchId } = req.params;
+    const { category_id } = req.query; // ✅ جديد
 
     if (!branchId || !Number.isFinite(Number(branchId))) {
       return next(
         new AppError("branchId is required and must be a number", 400),
       );
+    }
+
+    // ✅ validate category_id لو موجود
+    if (category_id !== undefined && !Number.isFinite(Number(category_id))) {
+      return next(new AppError("category_id must be a number", 400));
     }
 
     // (اختياري) اتأكد إن الفرع موجود وactive
@@ -24,49 +30,51 @@ export const customerBrowseController = {
     if (!branch.is_active)
       return next(new AppError("Branch is not active", 404));
 
-    // رجّع pricing مع service + category
-    const { data: rows, error } = await supabaseAdmin
+    // ✅ ابنِ query وطبّق الفلاتر تدريجيًا
+    let q = supabaseAdmin
       .from("branch_service_pricing")
       .select(
         `
+      id,
+      branch_id,
+      service_id,
+      price_amount,
+      currency,
+      duration_min,
+      is_active,
+      created_at,
+      services:service_id (
         id,
-        branch_id,
-        service_id,
-        price_amount,
-        currency,
-        duration_min,
+        name,
+        description,
+        default_duration_min,
         is_active,
+        category_id,
         created_at,
-        services:service_id (
+        service_categories:category_id (
           id,
-          name,
-          description,
-          default_duration_min,
-          is_active,
-          category_id,
-          created_at,
-          service_categories:category_id (
-            id,
-            name
-          )
+          name
         )
-      `,
+      )
+    `,
       )
       .eq("branch_id", branchId)
       .eq("is_active", true)
-      // فلتر الخدمات النشطة بطريقة stable:
       .filter("services.is_active", "eq", true);
+
+    // ✅ فلتر بالكاتيجوري لو موجود
+    if (category_id !== undefined) {
+      q = q.filter("services.category_id", "eq", Number(category_id));
+    }
+
+    const { data: rows, error } = await q;
 
     if (error)
       return next(new AppError("Failed to fetch services for branch", 500));
 
-    // (اختياري) رصّ البيانات بشكل أسهل للفرونت
     const services = (rows || [])
-      .filter((r) => r.services) // احتياط لو العلاقة null
+      .filter((r) => r.services)
       .map((r) => ({
-        // pricing_id: r.id,
-        // branch_id: r.branch_id,
-        // service_id: r.service_id,
         service: {
           id: r.services.id,
           name: r.services.name,
@@ -74,7 +82,6 @@ export const customerBrowseController = {
           price_amount: r.price_amount,
           currency: r.currency,
           duration_min: r.duration_min,
-          // default_duration_min: r.services.default_duration_min,
           category: r.services.service_categories
             ? {
                 id: r.services.service_categories.id,
@@ -88,27 +95,28 @@ export const customerBrowseController = {
       status: "success",
       data: {
         branch: { id: branch.id, name: branch.name },
+        category_id: category_id !== undefined ? Number(category_id) : null, // اختياري
         services,
       },
     });
   }),
-getBranches: catchAsync(async (req, res, next) => {
-  const { data: branches, error } = await supabaseAdmin
-    .from("branches")
-    .select("id, name, address, phone")
-    .eq("is_active", true)
-    .order("name", { ascending: true });
 
-  if (error) {
-    return next(new AppError("Failed to fetch branches", 500));
-  }
+  getBranches: catchAsync(async (req, res, next) => {
+    const { data: branches, error } = await supabaseAdmin
+      .from("branches")
+      .select("id, name, address, phone")
+      .eq("is_active", true)
+      .order("name", { ascending: true });
 
-  return res.status(200).json({
-    status: "success",
-    data: {
-      branches,
-    },
-  });
-}),
+    if (error) {
+      return next(new AppError("Failed to fetch branches", 500));
+    }
 
+    return res.status(200).json({
+      status: "success",
+      data: {
+        branches,
+      },
+    });
+  }),
 };
