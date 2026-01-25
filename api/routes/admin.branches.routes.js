@@ -1,8 +1,10 @@
 import express from "express";
 import { branchesController } from "../controllers/branches.controller.js";
 import protect from "../middleware/protect.js"
+import multer from "multer";
 
 const router = express.Router();
+const upload = multer({ storage: multer.memoryStorage() });
 
 router.use(protect);
 
@@ -19,5 +21,5 @@ router.delete("/:id/services/:service_id", branchesController.deleteBranchServic
 router.patch("/:id/services/:service_id", branchesController.toggleActiveBranchService);
 router.get("/:id/services/:service_id", branchesController.getBranchService);
 router.put("/:id/services/:service_id", branchesController.updateBranchService);
-
+router.post("/:id/images/:slot", upload.single("file"), branchesController.uploadImage);
 export default router;

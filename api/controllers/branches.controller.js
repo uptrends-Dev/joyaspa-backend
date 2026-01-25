@@ -590,4 +590,36 @@ export const branchesController = {
 
     return res.status(200).json({ status: "success", data: { branchService } });
   }),
+  uploadImage: catchAsync(async (req, res, next) => {
+    const { id, slot } = req.params;
+    const slotNum = Number(slot);
+
+    if (![1, 2].includes(slotNum)) return next(new AppError("slot must be 1 or 2", 400));
+    if (!req.file) return next(new AppError("No file uploaded", 400));
+
+    const ext = req.file.originalname.split(".").pop();
+    const path = `branches/${id}/slot-${slotNum}-${Date.now()}.${ext}`;
+
+    const { error: upErr } = await supabaseAdmin.storage
+      .from("branches") // bucket name
+      .upload(path, req.file.buffer, { contentType: req.file.mimetype, upsert: true });
+
+    if (upErr) return next(new AppError(upErr.message, 500));
+
+    const { data } = supabaseAdmin.storage.from("branches").getPublicUrl(path);
+    const url = data.publicUrl;
+
+    const col = slotNum === 1 ? "image_url_1" : "image_url_2";
+
+    const { data: updated, error: uErr } = await supabaseAdmin
+      .from("branches")
+      .update({ [col]: url })
+      .eq("id", id)
+      .select("id, image_url_1, image_url_2")
+      .single();
+
+    if (uErr || !updated) return next(new AppError("Failed to update branch image", 500));
+
+    return res.status(200).json({ status: "success", data: { branch: updated, url } });
+  }),
 };

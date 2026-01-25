@@ -365,4 +365,66 @@ export const servicesController = {
       data: { service },
     });
   }),
+   // POST /api/admin/services/:id/images/:slot
+  uploadImage: catchAsync(async (req, res, next) => {
+    const { id, slot } = req.params;
+    const slotNum = Number(slot);
+
+    if (![1, 2, 3, 4].includes(slotNum)) {
+      return next(new AppError("slot must be 1, 2, 3, or 4", 400));
+    }
+    if (!req.file) return next(new AppError("No file uploaded", 400));
+
+    // ensure service exists
+    const { data: service, error: sErr } = await supabaseAdmin
+      .from("services")
+      .select("id")
+      .eq("id", id)
+      .single();
+
+    if (sErr || !service) return next(new AppError("Service not found", 404));
+
+    // upload to storage bucket "services"
+    const ext = req.file.originalname.split(".").pop();
+    const path = `services/${id}/slot-${slotNum}-${Date.now()}.${ext}`;
+
+    const { error: upErr } = await supabaseAdmin.storage
+      .from("services") // bucket name
+      .upload(path, req.file.buffer, {
+        contentType: req.file.mimetype,
+        upsert: true,
+      });
+
+    if (upErr) return next(new AppError(upErr.message, 500));
+
+    // public url (bucket must be public)
+    const { data } = supabaseAdmin.storage.from("services").getPublicUrl(path);
+    const url = data.publicUrl;
+
+    // update service table column
+    const col =
+      slotNum === 1
+        ? "image_url_1"
+        : slotNum === 2
+          ? "image_url_2"
+          : slotNum === 3
+            ? "image_url_3"
+            : "image_url_4";
+
+    const { data: updated, error: uErr } = await supabaseAdmin
+      .from("services")
+      .update({ [col]: url })
+      .eq("id", id)
+      .select("id, image_url_1, image_url_2, image_url_3, image_url_4")
+      .single();
+
+    if (uErr || !updated) {
+      return next(new AppError("Failed to update service image", 500));
+    }
+
+    return res.status(200).json({
+      status: "success",
+      data: { service: updated, url },
+    });
+  }),
 };
