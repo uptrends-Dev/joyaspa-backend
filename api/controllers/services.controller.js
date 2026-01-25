@@ -9,6 +9,10 @@ const allowedSortFields = new Set([
   "default_duration_min",
   "is_active",
   "category_id",
+  "image_url_1",
+  "image_url_2",
+  "image_url_3",
+  "image_url_4",
 ]);
 
 export const servicesController = {
@@ -50,6 +54,10 @@ export const servicesController = {
         default_duration_min,
         is_active,
         created_at,
+        image_url_1,
+        image_url_2,
+        image_url_3,
+        image_url_4,
         service_categories:category_id ( id, name )
         
       `,
@@ -86,13 +94,13 @@ export const servicesController = {
       .from("services")
       .select("id,name");
 
-      if(slr){
-        return next(new AppError("Failed to fetch servicesList", 500))
-      }
-      return res.status(200).json({
-        status:"succcess",
-        data:{servicesList}
-      })
+    if (slr) {
+      return next(new AppError("Failed to fetch servicesList", 500));
+    }
+    return res.status(200).json({
+      status: "succcess",
+      data: { servicesList },
+    });
   }),
 
   // GET /api/admin/services/:id
@@ -110,6 +118,10 @@ export const servicesController = {
         default_duration_min,
         is_active,
         created_at,
+        image_url_1,
+        image_url_2,
+        image_url_3,
+        image_url_4,
         service_categories:category_id ( id, name )
       `,
       )
@@ -132,6 +144,10 @@ export const servicesController = {
       description = null,
       default_duration_min = null,
       is_active = true,
+      image_url_1 = null,
+      image_url_2 = null,
+      image_url_3 = null,
+      image_url_4 = null,
     } = req.body;
 
     if (!category_id || !Number.isFinite(Number(category_id))) {
@@ -159,6 +175,10 @@ export const servicesController = {
         default_duration_min === null || default_duration_min === undefined
           ? null
           : Number(default_duration_min),
+      image_url_1,
+      image_url_2,
+      image_url_3,
+      image_url_4,
     };
 
     if (
@@ -175,7 +195,7 @@ export const servicesController = {
       .from("services")
       .insert([payload])
       .select(
-        "id, category_id, name, description, default_duration_min, is_active, created_at",
+        "id, category_id, name, description, default_duration_min, is_active, created_at , image_url_1, image_url_2, image_url_3, image_url_4",
       )
       .single();
 
@@ -191,8 +211,17 @@ export const servicesController = {
   // PUT /api/admin/services/:id
   update: catchAsync(async (req, res, next) => {
     const { id } = req.params;
-    const { category_id, name, description, default_duration_min, is_active } =
-      req.body;
+    const {
+      category_id,
+      name,
+      description,
+      default_duration_min,
+      is_active,
+      image_url_1,
+      image_url_2,
+      image_url_3,
+      image_url_4,
+    } = req.body;
 
     const updates = {};
 
@@ -238,6 +267,11 @@ export const servicesController = {
 
     if (is_active !== undefined) updates.is_active = Boolean(is_active);
 
+    if (image_url_1 !== undefined) updates.image_url_1 = image_url_1;
+    if (image_url_2 !== undefined) updates.image_url_2 = image_url_2;
+    if (image_url_3 !== undefined) updates.image_url_3 = image_url_3;
+    if (image_url_4 !== undefined) updates.image_url_4 = image_url_4;
+
     if (Object.keys(updates).length === 0) {
       return next(new AppError("No fields to update", 400));
     }
@@ -247,7 +281,7 @@ export const servicesController = {
       .update(updates)
       .eq("id", id)
       .select(
-        "id, category_id, name, description, default_duration_min, is_active, created_at",
+        "id, category_id, name, description, default_duration_min, is_active, created_at , image_url_1, image_url_2, image_url_3, image_url_4",
       )
       .single();
 
