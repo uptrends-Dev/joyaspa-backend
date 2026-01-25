@@ -4,7 +4,11 @@ import { customerBrowseController } from "../controllers/customerBrowse.controll
 const router = express.Router();
 
 // GET /api/customer/browse/branches/:branchId/services
-router.get("/branches/:branchId/services", customerBrowseController.getServicesByBranchId);
+router.get(
+  "/branches/:branchId/services",
+  customerBrowseController.getServicesByBranchId,
+);
 router.get("/branches", customerBrowseController.getBranches);
+router.get("/categories", customerBrowseController.getCategories);
 
 export default router;

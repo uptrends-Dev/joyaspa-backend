@@ -12,7 +12,12 @@ router.get("/:id", branchesController.getById);
 router.post("/", branchesController.create);
 router.put("/:id", branchesController.update);
 router.delete("/:id", branchesController.remove);
-router.patch("/:id/toggle", branchesController.toggleActive);
-
+router.patch("/:id/toggle", branchesController.toggleActiveBranch);
+router.post("/:id/services", branchesController.createBranchService);
+router.get("/:id/services", branchesController.getBranchServices); // 
+router.delete("/:id/services/:service_id", branchesController.deleteBranchService);
+router.patch("/:id/services/:service_id", branchesController.toggleActiveBranchService);
+router.get("/:id/services/:service_id", branchesController.getBranchService);
+router.put("/:id/services/:service_id", branchesController.updateBranchService);
 
 export default router;

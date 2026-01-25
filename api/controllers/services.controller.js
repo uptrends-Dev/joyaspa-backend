@@ -51,6 +51,7 @@ export const servicesController = {
         is_active,
         created_at,
         service_categories:category_id ( id, name )
+        
       `,
       { count: "exact" },
     );
