@@ -10,5 +10,7 @@ router.get(
 );
 router.get("/branches", customerBrowseController.getBranches);
 router.get("/categories", customerBrowseController.getCategories);
+router.get("/countries", customerBrowseController.getCountries);
+router.get("/cities", customerBrowseController.getCities);
 
 export default router;

@@ -159,4 +159,66 @@ export const customerBrowseController = {
       },
     });
   }),
+
+  // GET /api/customer/browse/countries
+  getCountries: catchAsync(async (req, res, next) => {
+    const { data: branches, error } = await supabaseAdmin
+      .from("branches")
+      .select("country")
+      .eq("is_active", true)
+      .not("country", "is", null);
+
+    if (error) {
+      return next(new AppError("Failed to fetch countries", 500));
+    }
+
+    // Get distinct countries and sort them
+    const countries = [...new Set(branches.map((b) => b.country))]
+      .filter(Boolean)
+      .sort();
+
+    return res.status(200).json({
+      status: "success",
+      data: {
+        countries,
+      },
+    });
+  }),
+
+  // GET /api/customer/browse/cities
+  getCities: catchAsync(async (req, res, next) => {
+    const { country } = req.query;
+
+    let query = supabaseAdmin
+      .from("branches")
+      .select("city, country")
+      .eq("is_active", true)
+      .not("city", "is", null);
+
+    // Filter by country if provided
+    if (country) {
+      query = query.ilike("country", `%${country}%`);
+    }
+
+    const { data: branches, error } = await query;
+
+    if (error) {
+      return next(new AppError("Failed to fetch cities", 500));
+    }
+
+    // Get distinct cities and sort them
+    const cities = [...new Set(branches.map((b) => b.city))]
+      .filter(Boolean)
+      .sort();
+
+    return res.status(200).json({
+      status: "success",
+      data: {
+        cities,
+        filter: {
+          country: country || null,
+        },
+      },
+    });
+  }),
 };
