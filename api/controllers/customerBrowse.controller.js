@@ -47,6 +47,10 @@ export const customerBrowseController = {
       default_duration_min,
       is_active,
       category_id,
+      image_url_1,
+      image_url_2,
+      image_url_3,
+      image_url_4,
       service_categories:category_id ( id, name )
     ),
     branches:branch_id ( id, name )
@@ -70,7 +74,13 @@ export const customerBrowseController = {
         description: r.services.description,
         price_amount: r.price_amount,
         currency: r.currency,
-        duration_min: r.duration_min,
+        // duration_min: r.duration_min,
+        duration_min: r.services.default_duration_min,
+        image_url_1: r.services.image_url_1,
+        image_url_2: r.services.image_url_2,
+        image_url_3: r.services.image_url_3,
+        image_url_4: r.services.image_url_4,
+
         category: r.services.service_categories
           ? {
               id: r.services.service_categories.id,
@@ -85,7 +95,7 @@ export const customerBrowseController = {
         branch: rows?.[0]?.branches
           ? { id: rows[0].branches.id, name: rows[0].branches.name }
           : { id: Number(branchId), name: branch.name },
-        category_id: category_id !== undefined ? Number(category_id) : null,
+        // category_id: category_id !== undefined ? Number(category_id) : null,
         services,
       },
     });
