@@ -22,7 +22,7 @@ import globalErrorHandler from "./middleware/errorHandler.js";
 
 const app = express();
 
-const whitelist = ["http://localhost:3000", "https://www.joyaspa.net"];
+const whitelist = ["http://localhost:3000", "https://www.joyaspa.net", "https://joya-spa-frontend-git-dev-uptrends-projects-bf5f155c.vercel.app"];
 const corsOptions = {
   origin: (origin, cb) => {
     if (!origin || whitelist.includes(origin)) return cb(null, true);
