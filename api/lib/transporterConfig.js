@@ -11,6 +11,6 @@ export function transporterConfig() {
       user: EMAIL_USER,
       pass: EMAIL_PASS,
     },
-    bcc: BCC_EMAIL ,
+    // bcc: BCC_EMAIL ,
   };
 }
