@@ -1,6 +1,7 @@
 import catchAsync from "../lib/catchAsync.js";
 import AppError from "../lib/AppError.js";
 import { supabaseAdmin } from "../lib/supabaseAdmin.js";
+import { sendBookingEmail } from "../lib/sendBookingEmail.js"; // ✅ عدّل المسار حسب مشروعك
 
 export const customerBookingController = {
   create: catchAsync(async (req, res, next) => {
@@ -40,7 +41,7 @@ export const customerBookingController = {
     let customerId = null;
 
     // ------------------------
-    // 2) Always create customer (your chosen approach)
+    // 2) Always create customer
     // ------------------------
     const { data: newCustomer, error: createCustomerError } = await supabaseAdmin
       .from("customers")
@@ -52,7 +53,7 @@ export const customerBookingController = {
         gender: norm(customer.gender),
         nationality: norm(customer.nationality),
       })
-      .select("id")
+      .select("id, first_name, last_name, email")
       .single();
 
     if (createCustomerError) return next(createCustomerError);
@@ -81,6 +82,16 @@ export const customerBookingController = {
       if (pricing.length !== serviceIds.length) {
         throw new AppError("One or more services are not available for this branch", 400);
       }
+
+      // ✅ (اختياري) هات اسم الفرع بدل ما نعرض ID في الإيميل
+      const { data: branchRow, error: branchError } = await supabaseAdmin
+        .from("branches")
+        .select("id, name")
+        .eq("id", branch_id)
+        .single();
+
+      // لو فشلنا في جلب الفرع، مش هنوقف الحجز
+      const branchName = branchError ? null : branchRow?.name;
 
       // ------------------------
       // 4) Create booking
@@ -123,10 +134,7 @@ export const customerBookingController = {
         };
       });
 
-      const { error: itemsError } = await supabaseAdmin
-        .from("booking_items")
-        .insert(items);
-
+      const { error: itemsError } = await supabaseAdmin.from("booking_items").insert(items);
       if (itemsError) throw itemsError;
 
       // ------------------------
@@ -140,7 +148,7 @@ export const customerBookingController = {
       if (totalError) throw totalError;
 
       // ------------------------
-      // 7) Response
+      // 7) Build response + send email
       // ------------------------
       const itemsBreakdown = items.map((item) => ({
         service_name: item.service_name_snapshot,
@@ -149,6 +157,34 @@ export const customerBookingController = {
         item_total: Number(item.price_amount_snapshot) * item.quantity,
         currency: item.currency_snapshot,
       }));
+
+      // ✅ إرسال الإيميل (لو فيه email)
+      if (newCustomer.email) {
+        try {
+          await sendBookingEmail({
+            booking: {
+              id: booking.id,
+              date: booking.date,
+              branch_id,
+              branch_name: branchName,
+              notes: booking.notes,
+            },
+            customer: {
+              first_name: newCustomer.first_name,
+              last_name: newCustomer.last_name,
+              email: newCustomer.email,
+            },
+            items: itemsBreakdown,
+            totals: {
+              grand_total: grandTotal,
+              currency: itemsBreakdown?.[0]?.currency || null,
+            },
+          });
+        } catch (emailErr) {
+          // مهم: ما تفشلش الحجز بسبب الإيميل
+          console.error("Failed to send booking email:", emailErr);
+        }
+      }
 
       return res.status(201).json({
         success: true,
@@ -159,7 +195,6 @@ export const customerBookingController = {
     } catch (err) {
       // ✅ Cleanup: remove customer created in this request to avoid orphan rows
       await supabaseAdmin.from("customers").delete().eq("id", customerId);
-      // pass error forward
       return next(err);
     }
   }),
