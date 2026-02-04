@@ -409,15 +409,27 @@ export const branchesController = {
     const resolved = await resolveBranchByIdOrSlug(id);
     if (!resolved) return next(new AppError("Branch not found", 404));
 
-    const { data: services, error } = await supabaseAdmin
+    const { data: rows, error } = await supabaseAdmin
       .from("branch_service_pricing")
       .select(
-        "id, branch_id, service_id, price_amount, currency, duration_min, is_active, created_at"
+        "id, branch_id, service_id, price_amount, currency, duration_min, is_active, created_at, services:service_id ( name )"
       )
       .eq("branch_id", resolved.id);
 
     if (error)
       return next(new AppError("Failed to fetch branch services", 500));
+
+    const services = (rows || []).map((r) => ({
+      id: r.id,
+      branch_id: r.branch_id,
+      service_id: r.service_id,
+      price_amount: r.price_amount,
+      currency: r.currency,
+      duration_min: r.duration_min,
+      is_active: r.is_active,
+      created_at: r.created_at,
+      service_name: r.services?.name ?? null,
+    }));
 
     return res.status(200).json({
       status: "success",
