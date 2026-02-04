@@ -102,6 +102,11 @@ export const customerBrowseController = {
               id: rows[0].branches.id,
               name: rows[0].branches.name,
               slug: rows[0].branches.slug,
+              image_url_1: rows[0].branches.image_url_1,
+              image_url_2: rows[0].branches.image_url_2,
+              image_url_3: rows[0].branches.image_url_3,
+              image_url_4: rows[0].branches.image_url_4,
+              image_url_5: rows[0].branches.image_url_5,
             }
           : { id: branch.id, name: branch.name, slug: branch.slug },
         // category_id: category_id !== undefined ? Number(category_id) : null,
