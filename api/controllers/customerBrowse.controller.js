@@ -58,7 +58,7 @@ export const customerBrowseController = {
       image_url_4,
       service_categories:category_id ( id, name )
     ),
-    branches:branch_id ( id, name, slug )
+    branches:branch_id ( id, name, slug, image_url_1, image_url_2, image_url_3, image_url_4, image_url_5 )
   `
       )
       .eq("branch_id", branch.id)
@@ -82,9 +82,9 @@ export const customerBrowseController = {
         // duration_min: r.duration_min,
         duration_min: r.services.default_duration_min,
         image_url_1: r.services.image_url_1,
-        image_url_2: r.services.image_url_2,
-        image_url_3: r.services.image_url_3,
-        image_url_4: r.services.image_url_4,
+        // image_url_2: r.services.image_url_2,
+        // image_url_3: r.services.image_url_3,
+        // image_url_4: r.services.image_url_4,
 
         category: r.services.service_categories
           ? {
@@ -101,14 +101,14 @@ export const customerBrowseController = {
           ? {
               id: rows[0].branches.id,
               name: rows[0].branches.name,
-              slug: rows[0].branches.slug,
+              slug: rows[0].branches.slug, 
               image_url_1: rows[0].branches.image_url_1,
               image_url_2: rows[0].branches.image_url_2,
               image_url_3: rows[0].branches.image_url_3,
               image_url_4: rows[0].branches.image_url_4,
               image_url_5: rows[0].branches.image_url_5,
             }
-          : { id: branch.id, name: branch.name, slug: branch.slug },
+          : { id: branch.id, name: branch.name, slug: branch.slug, image_url_1: branch.image_url_1, image_url_2: branch.image_url_2, image_url_3: branch.image_url_3, image_url_4: branch.image_url_4, image_url_5: branch.image_url_5 },
         // category_id: category_id !== undefined ? Number(category_id) : null,
         services,
       },
