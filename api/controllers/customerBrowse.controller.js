@@ -2,31 +2,36 @@ import catchAsync from "../lib/catchAsync.js";
 import AppError from "../lib/AppError.js";
 import { supabaseAdmin } from "../lib/supabaseAdmin.js";
 
+/** Resolve branch by id (numeric) or slug (string). Returns branch row or null. */
+async function resolveBranchByIdOrSlug(idOrSlug) {
+  if (!idOrSlug || String(idOrSlug).trim() === "") return null;
+  const val = String(idOrSlug).trim();
+  const isNumeric = /^\d+$/.test(val);
+  const { data, error } = await supabaseAdmin
+    .from("branches")
+    .select("id, name, slug, is_active")
+    .or(isNumeric ? `id.eq.${val}` : `slug.eq.${val}`)
+    .single();
+  if (error || !data) return null;
+  return data;
+}
+
 export const customerBrowseController = {
-  // GET /api/customer/browse/branches/:branchId/services
+  // GET /api/customer/browse/branches/:branchId/services (branchId can be id or slug)
   getServicesByBranchId: catchAsync(async (req, res, next) => {
     const { branchId } = req.params;
-    const { category_id } = req.query; // ✅ جديد
+    const { category_id } = req.query;
 
-    if (!branchId || !Number.isFinite(Number(branchId))) {
-      return next(
-        new AppError("branchId is required and must be a number", 400),
-      );
+    if (!branchId) {
+      return next(new AppError("branchId is required", 400));
     }
 
-    // ✅ validate category_id لو موجود
     if (category_id !== undefined && !Number.isFinite(Number(category_id))) {
       return next(new AppError("category_id must be a number", 400));
     }
 
-    // (اختياري) اتأكد إن الفرع موجود وactive
-    const { data: branch, error: bErr } = await supabaseAdmin
-      .from("branches")
-      .select("id, name, is_active")
-      .eq("id", branchId)
-      .single();
-
-    if (bErr || !branch) return next(new AppError("Branch not found", 404));
+    const branch = await resolveBranchByIdOrSlug(branchId);
+    if (!branch) return next(new AppError("Branch not found", 404));
     if (!branch.is_active)
       return next(new AppError("Branch is not active", 404));
     let q = supabaseAdmin
@@ -53,10 +58,10 @@ export const customerBrowseController = {
       image_url_4,
       service_categories:category_id ( id, name )
     ),
-    branches:branch_id ( id, name )
-  `,
+    branches:branch_id ( id, name, slug )
+  `
       )
-      .eq("branch_id", branchId)
+      .eq("branch_id", branch.id)
       .eq("is_active", true)
       .filter("services.is_active", "eq", true);
 
@@ -93,8 +98,12 @@ export const customerBrowseController = {
       status: "success",
       data: {
         branch: rows?.[0]?.branches
-          ? { id: rows[0].branches.id, name: rows[0].branches.name }
-          : { id: Number(branchId), name: branch.name },
+          ? {
+              id: rows[0].branches.id,
+              name: rows[0].branches.name,
+              slug: rows[0].branches.slug,
+            }
+          : { id: branch.id, name: branch.name, slug: branch.slug },
         // category_id: category_id !== undefined ? Number(category_id) : null,
         services,
       },
@@ -107,7 +116,7 @@ export const customerBrowseController = {
     let query = supabaseAdmin
       .from("branches")
       .select(
-        "id, name, address, phone, country, city, region, image_url_1, image_url_2",
+        "id, name, address, phone, country, city, region, slug, image_url_1, image_url_2, image_url_3, image_url_4, image_url_5"
       )
       .eq("is_active", true);
 

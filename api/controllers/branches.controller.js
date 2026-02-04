@@ -2,7 +2,42 @@ import catchAsync from "../lib/catchAsync.js";
 import AppError from "../lib/AppError.js";
 import { supabaseAdmin } from "../lib/supabaseAdmin.js";
 
-const allowedSortFields = new Set(["id", "name", "created_at", "is_active"]);
+const allowedSortFields = new Set([
+  "id",
+  "name",
+  "created_at",
+  "is_active",
+  "slug",
+]);
+const BRANCH_SELECT =
+  "id, name, address, phone, is_active, created_at, country, city, region, slug, image_url_1, image_url_2, image_url_3, image_url_4, image_url_5";
+
+/** Resolve branch by id (numeric) or slug (string). Returns { id } or null. */
+async function resolveBranchByIdOrSlug(idOrSlug) {
+  if (!idOrSlug || String(idOrSlug).trim() === "") return null;
+  const val = String(idOrSlug).trim();
+  const isNumeric = /^\d+$/.test(val);
+  const { data, error } = await supabaseAdmin
+    .from("branches")
+    .select("id")
+    .or(isNumeric ? `id.eq.${val}` : `slug.eq.${val}`)
+    .single();
+  if (error || !data) return null;
+  return data;
+}
+
+/** Generate slug from name: lowercase, spaces to hyphens, alphanumeric + hyphens only */
+function slugify(name) {
+  return (
+    String(name)
+      .trim()
+      .toLowerCase()
+      .replace(/\s+/g, "-")
+      .replace(/[^a-z0-9-]/g, "")
+      .replace(/-+/g, "-")
+      .replace(/^-|-$/g, "") || "branch"
+  );
+}
 
 export const branchesController = {
   // GET /api/admin/branches?page=1&limit=10&sortBy=created_at&sortOrder=desc&is_active=true&search=maadi
@@ -10,7 +45,7 @@ export const branchesController = {
     const page = Math.max(parseInt(req.query.page || "1", 10), 1);
     const limit = Math.min(
       Math.max(parseInt(req.query.limit || "10", 10), 1),
-      100,
+      100
     );
 
     const sortByRaw = (req.query.sortBy || "created_at").toString();
@@ -33,12 +68,7 @@ export const branchesController = {
 
     let query = supabaseAdmin
       .from("branches")
-      .select(
-        "id, name, address, phone, is_active, created_at, country, city, region, image_url_1, image_url_2",
-        {
-          count: "exact",
-        },
-      );
+      .select(BRANCH_SELECT, { count: "exact" });
 
     // filters
     if (isActive !== null) query = query.eq("is_active", isActive);
@@ -68,16 +98,16 @@ export const branchesController = {
     });
   }),
 
-  // GET /api/admin/branches/:id
+  // GET /api/admin/branches/:id (id can be numeric id or slug)
   getById: catchAsync(async (req, res, next) => {
     const { id } = req.params;
+    const resolved = await resolveBranchByIdOrSlug(id);
+    if (!resolved) return next(new AppError("Branch not found", 404));
 
     const { data: branch, error } = await supabaseAdmin
       .from("branches")
-      .select(
-        "id, name, address, phone, is_active, created_at, country, city, region, image_url_1, image_url_2",
-      )
-      .eq("id", id)
+      .select(BRANCH_SELECT)
+      .eq("id", resolved.id)
       .single();
 
     if (error || !branch) return next(new AppError("Branch not found", 404));
@@ -98,13 +128,26 @@ export const branchesController = {
       country = null,
       city = null,
       region = null,
+      slug = null,
       image_url_1 = null,
       image_url_2 = null,
+      image_url_3 = null,
+      image_url_4 = null,
+      image_url_5 = null,
     } = req.body;
 
     if (!name || typeof name !== "string" || !name.trim()) {
       return next(new AppError("name is required", 400));
     }
+
+    const finalSlug =
+      slug && typeof slug === "string" && slug.trim()
+        ? slug
+            .trim()
+            .toLowerCase()
+            .replace(/\s+/g, "-")
+            .replace(/[^a-z0-9-]/g, "")
+        : slugify(name);
 
     const payload = {
       name: name.trim(),
@@ -114,16 +157,18 @@ export const branchesController = {
       country,
       city,
       region,
+      slug: finalSlug || "branch",
       image_url_1,
       image_url_2,
+      image_url_3,
+      image_url_4,
+      image_url_5,
     };
 
     const { data: branch, error } = await supabaseAdmin
       .from("branches")
       .insert([payload])
-      .select(
-        "id, name, address, phone, is_active, created_at, country, city, region, image_url_1, image_url_2",
-      )
+      .select(BRANCH_SELECT)
       .single();
 
     if (error || !branch)
@@ -135,9 +180,12 @@ export const branchesController = {
     });
   }),
 
-  // PUT /api/admin/branches/:id
+  // PUT /api/admin/branches/:id (id can be numeric id or slug)
   update: catchAsync(async (req, res, next) => {
     const { id } = req.params;
+    const resolved = await resolveBranchByIdOrSlug(id);
+    if (!resolved) return next(new AppError("Branch not found", 404));
+
     const {
       name,
       address,
@@ -146,8 +194,12 @@ export const branchesController = {
       country,
       city,
       region,
+      slug,
       image_url_1,
       image_url_2,
+      image_url_3,
+      image_url_4,
+      image_url_5,
     } = req.body;
 
     const updates = {};
@@ -165,8 +217,22 @@ export const branchesController = {
     if (country !== undefined) updates.country = country;
     if (city !== undefined) updates.city = city;
     if (region !== undefined) updates.region = region;
+    if (slug !== undefined) {
+      const s =
+        typeof slug === "string"
+          ? slug
+              .trim()
+              .toLowerCase()
+              .replace(/\s+/g, "-")
+              .replace(/[^a-z0-9-]/g, "")
+          : "";
+      updates.slug = s || "branch";
+    }
     if (image_url_1 !== undefined) updates.image_url_1 = image_url_1;
     if (image_url_2 !== undefined) updates.image_url_2 = image_url_2;
+    if (image_url_3 !== undefined) updates.image_url_3 = image_url_3;
+    if (image_url_4 !== undefined) updates.image_url_4 = image_url_4;
+    if (image_url_5 !== undefined) updates.image_url_5 = image_url_5;
 
     if (Object.keys(updates).length === 0) {
       return next(new AppError("No fields to update", 400));
@@ -175,10 +241,8 @@ export const branchesController = {
     const { data: branch, error } = await supabaseAdmin
       .from("branches")
       .update(updates)
-      .eq("id", id)
-      .select(
-        "id, name, address, phone, is_active, created_at, country, city, region, image_url_1, image_url_2",
-      )
+      .eq("id", resolved.id)
+      .select(BRANCH_SELECT)
       .single();
 
     if (error || !branch) return next(new AppError("Branch not found", 404));
@@ -189,28 +253,20 @@ export const branchesController = {
     });
   }),
 
-  // DELETE /api/admin/branches/:id
+  // DELETE /api/admin/branches/:id (id can be numeric id or slug)
   remove: catchAsync(async (req, res, next) => {
     const { id } = req.params;
 
     if (!id) return next(new AppError("Branch id is required", 400));
 
-    // 1) تأكد إن الفرع موجود
-    const { data: branch, error: bErr } = await supabaseAdmin
-      .from("branches")
-      .select("id")
-      .eq("id", id)
-      .single();
-
-    if (bErr || !branch) {
-      return next(new AppError("Branch not found", 404));
-    }
+    const resolved = await resolveBranchByIdOrSlug(id);
+    if (!resolved) return next(new AppError("Branch not found", 404));
 
     // 2) هل الفرع مستخدم في branch_service_pricing؟
     const { data: pricingUsage, error: pErr } = await supabaseAdmin
       .from("branch_service_pricing")
       .select("id")
-      .eq("branch_id", id)
+      .eq("branch_id", resolved.id)
       .limit(1);
 
     if (pErr) {
@@ -221,15 +277,15 @@ export const branchesController = {
       return next(
         new AppError(
           "Branch is used in branch pricing and cannot be deleted",
-          409,
-        ),
+          409
+        )
       );
     }
 
     const { data: bookingUsage, error: bkErr } = await supabaseAdmin
       .from("bookings")
       .select("id")
-      .eq("branch_id", id)
+      .eq("branch_id", resolved.id)
       .limit(1);
 
     if (bkErr) {
@@ -238,7 +294,7 @@ export const branchesController = {
 
     if (bookingUsage && bookingUsage.length > 0) {
       return next(
-        new AppError("Branch is used in bookings and cannot be deleted", 409),
+        new AppError("Branch is used in bookings and cannot be deleted", 409)
       );
     }
 
@@ -246,7 +302,7 @@ export const branchesController = {
     const { error: dErr } = await supabaseAdmin
       .from("branches")
       .delete()
-      .eq("id", id);
+      .eq("id", resolved.id);
 
     if (dErr) {
       return next(new AppError("Failed to delete branch", 500));
@@ -258,14 +314,16 @@ export const branchesController = {
     });
   }),
 
-  // PATCH /api/admin/branches/:id/toggle
+  // PATCH /api/admin/branches/:id/toggle (id can be numeric id or slug)
   toggleActiveBranch: catchAsync(async (req, res, next) => {
     const { id } = req.params;
+    const resolved = await resolveBranchByIdOrSlug(id);
+    if (!resolved) return next(new AppError("Branch not found", 404));
 
     const { data: existing, error: e1 } = await supabaseAdmin
       .from("branches")
       .select("id, is_active")
-      .eq("id", id)
+      .eq("id", resolved.id)
       .single();
 
     if (e1 || !existing) return next(new AppError("Branch not found", 404));
@@ -273,8 +331,8 @@ export const branchesController = {
     const { data: branch, error: e2 } = await supabaseAdmin
       .from("branches")
       .update({ is_active: !existing.is_active })
-      .eq("id", id)
-      .select("id, name, address, phone, is_active, created_at")
+      .eq("id", resolved.id)
+      .select(BRANCH_SELECT)
       .single();
 
     if (e2 || !branch)
@@ -289,7 +347,7 @@ export const branchesController = {
   branchsList: catchAsync(async (req, res, next) => {
     const { data: branches, error } = await supabaseAdmin
       .from("branches")
-      .select("id, name")
+      .select("id, name, slug")
       .eq("is_active", true)
       .order("name", { ascending: true });
 
@@ -304,18 +362,13 @@ export const branchesController = {
       },
     });
   }),
-  // POST /api/admin/branches/:id/services
+  // POST /api/admin/branches/:id/services (id can be numeric id or slug)
   createBranchService: catchAsync(async (req, res, next) => {
     const { id } = req.params;
     const { service_id, price_amount, currency, duration_min } = req.body;
 
-    const { data: branch, error: bErr } = await supabaseAdmin
-      .from("branches")
-      .select("id")
-      .eq("id", id)
-      .single();
-
-    if (bErr || !branch) return next(new AppError("Branch not found", 404));
+    const resolved = await resolveBranchByIdOrSlug(id);
+    if (!resolved) return next(new AppError("Branch not found", 404));
 
     const { data: service, error: sErr } = await supabaseAdmin
       .from("services")
@@ -326,7 +379,7 @@ export const branchesController = {
     if (sErr || !service) return next(new AppError("Service not found", 404));
 
     const payload = {
-      branch_id: id,
+      branch_id: resolved.id,
       service_id,
       price_amount,
       currency,
@@ -337,7 +390,7 @@ export const branchesController = {
       .from("branch_service_pricing")
       .insert([payload])
       .select(
-        "id, branch_id, service_id, price_amount, currency, duration_min, is_active, created_at",
+        "id, branch_id, service_id, price_amount, currency, duration_min, is_active, created_at"
       )
       .single();
 
@@ -349,24 +402,19 @@ export const branchesController = {
       data: { branchService },
     });
   }),
-  // GET /api/admin/branches/:id/services
+  // GET /api/admin/branches/:id/services (id can be numeric id or slug)
   getBranchServices: catchAsync(async (req, res, next) => {
     const { id } = req.params;
 
-    const { data: branch, error: bErr } = await supabaseAdmin
-      .from("branches")
-      .select("id")
-      .eq("id", id)
-      .single();
-
-    if (bErr || !branch) return next(new AppError("Branch not found", 404));
+    const resolved = await resolveBranchByIdOrSlug(id);
+    if (!resolved) return next(new AppError("Branch not found", 404));
 
     const { data: services, error } = await supabaseAdmin
       .from("branch_service_pricing")
       .select(
-        "id, branch_id, service_id, price_amount, currency, duration_min, is_active, created_at",
+        "id, branch_id, service_id, price_amount, currency, duration_min, is_active, created_at"
       )
-      .eq("branch_id", id);
+      .eq("branch_id", resolved.id);
 
     if (error)
       return next(new AppError("Failed to fetch branch services", 500));
@@ -376,23 +424,15 @@ export const branchesController = {
       data: { services },
     });
   }),
-  // DELETE /api/admin/branches/:id/services/:service_id
+  // DELETE /api/admin/branches/:id/services/:service_id (id can be numeric id or slug)
   deleteBranchService: catchAsync(async (req, res, next) => {
     const { id, service_id } = req.params;
 
-    // (اختياري) validate
-    if (!Number.isFinite(Number(id)))
-      return next(new AppError("Invalid branch id", 400));
     if (!Number.isFinite(Number(service_id)))
       return next(new AppError("Invalid service id", 400));
 
-    // تأكد الفرع موجود
-    const { data: branch, error: bErr } = await supabaseAdmin
-      .from("branches")
-      .select("id")
-      .eq("id", id)
-      .single();
-    if (bErr || !branch) return next(new AppError("Branch not found", 404));
+    const resolved = await resolveBranchByIdOrSlug(id);
+    if (!resolved) return next(new AppError("Branch not found", 404));
 
     // تأكد الخدمة موجودة
     const { data: service, error: sErr } = await supabaseAdmin
@@ -406,7 +446,7 @@ export const branchesController = {
     const { data: current, error: cErr } = await supabaseAdmin
       .from("branch_service_pricing")
       .select("id")
-      .eq("branch_id", id)
+      .eq("branch_id", resolved.id)
       .eq("service_id", service_id)
       .single();
 
@@ -427,24 +467,15 @@ export const branchesController = {
     });
   }),
 
-  // PATCH /api/admin/branches/:id/services/:service_id
+  // PATCH /api/admin/branches/:id/services/:service_id (id can be numeric id or slug)
   toggleActiveBranchService: catchAsync(async (req, res, next) => {
     const { id, service_id } = req.params;
 
-    // validate
-    if (!Number.isFinite(Number(id)))
-      return next(new AppError("Invalid branch id", 400));
     if (!Number.isFinite(Number(service_id)))
       return next(new AppError("Invalid service id", 400));
 
-    // check branch exists
-    const { data: branch, error: bErr } = await supabaseAdmin
-      .from("branches")
-      .select("id")
-      .eq("id", id)
-      .single();
-
-    if (bErr || !branch) return next(new AppError("Branch not found", 404));
+    const resolved = await resolveBranchByIdOrSlug(id);
+    if (!resolved) return next(new AppError("Branch not found", 404));
 
     // check service exists
     const { data: service, error: sErr } = await supabaseAdmin
@@ -459,7 +490,7 @@ export const branchesController = {
     const { data: current, error: cErr } = await supabaseAdmin
       .from("branch_service_pricing")
       .select("id, is_active")
-      .eq("branch_id", id)
+      .eq("branch_id", resolved.id)
       .eq("service_id", service_id)
       .single();
 
@@ -473,7 +504,7 @@ export const branchesController = {
       .update({ is_active: !current.is_active })
       .eq("id", current.id)
       .select(
-        "id, branch_id, service_id, price_amount, currency, duration_min, is_active, created_at",
+        "id, branch_id, service_id, price_amount, currency, duration_min, is_active, created_at"
       )
       .single();
 
@@ -487,24 +518,15 @@ export const branchesController = {
     });
   }),
 
-  // GET /api/admin/branches/:id/services/:service_id
+  // GET /api/admin/branches/:id/services/:service_id (id can be numeric id or slug)
   getBranchService: catchAsync(async (req, res, next) => {
     const { id, service_id } = req.params;
 
-    // validate
-    if (!Number.isFinite(Number(id)))
-      return next(new AppError("Invalid branch id", 400));
     if (!Number.isFinite(Number(service_id)))
       return next(new AppError("Invalid service id", 400));
 
-    // check branch exists
-    const { data: branch, error: bErr } = await supabaseAdmin
-      .from("branches")
-      .select("id")
-      .eq("id", id)
-      .single();
-
-    if (bErr || !branch) return next(new AppError("Branch not found", 404));
+    const resolved = await resolveBranchByIdOrSlug(id);
+    if (!resolved) return next(new AppError("Branch not found", 404));
 
     // check service exists
     const { data: service, error: sErr } = await supabaseAdmin
@@ -519,7 +541,7 @@ export const branchesController = {
     const { data: current, error: cErr } = await supabaseAdmin
       .from("branch_service_pricing")
       .select("id, is_active")
-      .eq("branch_id", id)
+      .eq("branch_id", resolved.id)
       .eq("service_id", service_id)
       .single();
 
@@ -533,15 +555,16 @@ export const branchesController = {
     });
   }),
 
-  // PUT /api/admin/branches/:id/services/:service_id
+  // PUT /api/admin/branches/:id/services/:service_id (id can be numeric id or slug)
   updateBranchService: catchAsync(async (req, res, next) => {
     const { id, service_id } = req.params;
     const { price_amount, currency, duration_min } = req.body;
 
-    if (!Number.isFinite(Number(id)))
-      return next(new AppError("Invalid branch id", 400));
     if (!Number.isFinite(Number(service_id)))
       return next(new AppError("Invalid service id", 400));
+
+    const resolved = await resolveBranchByIdOrSlug(id);
+    if (!resolved) return next(new AppError("Branch not found", 404));
 
     if (
       price_amount === undefined &&
@@ -569,7 +592,7 @@ export const branchesController = {
     const { data: current, error: cErr } = await supabaseAdmin
       .from("branch_service_pricing")
       .select("id")
-      .eq("branch_id", id)
+      .eq("branch_id", resolved.id)
       .eq("service_id", service_id)
       .single();
 
@@ -581,7 +604,7 @@ export const branchesController = {
       .update(payload)
       .eq("id", current.id)
       .select(
-        "id, branch_id, service_id, price_amount, currency, duration_min, is_active, created_at",
+        "id, branch_id, service_id, price_amount, currency, duration_min, is_active, created_at"
       )
       .single();
 
@@ -590,36 +613,47 @@ export const branchesController = {
 
     return res.status(200).json({ status: "success", data: { branchService } });
   }),
+  // POST /api/admin/branches/:id/images/:slot (id can be numeric id or slug, slot 1-5)
   uploadImage: catchAsync(async (req, res, next) => {
     const { id, slot } = req.params;
     const slotNum = Number(slot);
 
-    if (![1, 2].includes(slotNum)) return next(new AppError("slot must be 1 or 2", 400));
+    if (![1, 2, 3, 4, 5].includes(slotNum))
+      return next(new AppError("slot must be 1, 2, 3, 4, or 5", 400));
     if (!req.file) return next(new AppError("No file uploaded", 400));
 
+    const resolved = await resolveBranchByIdOrSlug(id);
+    if (!resolved) return next(new AppError("Branch not found", 404));
+
     const ext = req.file.originalname.split(".").pop();
-    const path = `branches/${id}/slot-${slotNum}-${Date.now()}.${ext}`;
+    const path = `branches/${resolved.id}/slot-${slotNum}-${Date.now()}.${ext}`;
 
     const { error: upErr } = await supabaseAdmin.storage
-      .from("branches") // bucket name
-      .upload(path, req.file.buffer, { contentType: req.file.mimetype, upsert: true });
+      .from("branches")
+      .upload(path, req.file.buffer, {
+        contentType: req.file.mimetype,
+        upsert: true,
+      });
 
     if (upErr) return next(new AppError(upErr.message, 500));
 
     const { data } = supabaseAdmin.storage.from("branches").getPublicUrl(path);
     const url = data.publicUrl;
 
-    const col = slotNum === 1 ? "image_url_1" : "image_url_2";
+    const col = `image_url_${slotNum}`;
 
     const { data: updated, error: uErr } = await supabaseAdmin
       .from("branches")
       .update({ [col]: url })
-      .eq("id", id)
-      .select("id, image_url_1, image_url_2")
+      .eq("id", resolved.id)
+      .select(BRANCH_SELECT)
       .single();
 
-    if (uErr || !updated) return next(new AppError("Failed to update branch image", 500));
+    if (uErr || !updated)
+      return next(new AppError("Failed to update branch image", 500));
 
-    return res.status(200).json({ status: "success", data: { branch: updated, url } });
+    return res
+      .status(200)
+      .json({ status: "success", data: { branch: updated, url } });
   }),
 };
