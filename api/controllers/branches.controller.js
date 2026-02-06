@@ -45,7 +45,7 @@ export const branchesController = {
     const page = Math.max(parseInt(req.query.page || "1", 10), 1);
     const limit = Math.min(
       Math.max(parseInt(req.query.limit || "10", 10), 1),
-      100
+      100,
     );
 
     const sortByRaw = (req.query.sortBy || "created_at").toString();
@@ -217,16 +217,16 @@ export const branchesController = {
     if (country !== undefined) updates.country = country;
     if (city !== undefined) updates.city = city;
     if (region !== undefined) updates.region = region;
-    if (slug !== undefined) {
-      const s =
-        typeof slug === "string"
-          ? slug
-              .trim()
-              .toLowerCase()
-              .replace(/\s+/g, "-")
-              .replace(/[^a-z0-9-]/g, "")
-          : "";
-      updates.slug = s || "branch";
+
+    // slug: if explicitly sent use it, else if name was updated auto-generate from new name
+    if (slug !== undefined && typeof slug === "string" && slug.trim()) {
+      updates.slug = slug
+        .trim()
+        .toLowerCase()
+        .replace(/\s+/g, "-")
+        .replace(/[^a-z0-9-]/g, "");
+    } else if (name !== undefined) {
+      updates.slug = slugify(name.trim());
     }
     if (image_url_1 !== undefined) updates.image_url_1 = image_url_1;
     if (image_url_2 !== undefined) updates.image_url_2 = image_url_2;
@@ -277,8 +277,8 @@ export const branchesController = {
       return next(
         new AppError(
           "Branch is used in branch pricing and cannot be deleted",
-          409
-        )
+          409,
+        ),
       );
     }
 
@@ -294,7 +294,7 @@ export const branchesController = {
 
     if (bookingUsage && bookingUsage.length > 0) {
       return next(
-        new AppError("Branch is used in bookings and cannot be deleted", 409)
+        new AppError("Branch is used in bookings and cannot be deleted", 409),
       );
     }
 
@@ -390,7 +390,7 @@ export const branchesController = {
       .from("branch_service_pricing")
       .insert([payload])
       .select(
-        "id, branch_id, service_id, price_amount, currency, duration_min, is_active, created_at"
+        "id, branch_id, service_id, price_amount, currency, duration_min, is_active, created_at",
       )
       .single();
 
@@ -412,7 +412,7 @@ export const branchesController = {
     const { data: rows, error } = await supabaseAdmin
       .from("branch_service_pricing")
       .select(
-        "id, branch_id, service_id, price_amount, currency, duration_min, is_active, created_at, services:service_id ( name )"
+        "id, branch_id, service_id, price_amount, currency, duration_min, is_active, created_at, services:service_id ( name )",
       )
       .eq("branch_id", resolved.id);
 
@@ -516,7 +516,7 @@ export const branchesController = {
       .update({ is_active: !current.is_active })
       .eq("id", current.id)
       .select(
-        "id, branch_id, service_id, price_amount, currency, duration_min, is_active, created_at"
+        "id, branch_id, service_id, price_amount, currency, duration_min, is_active, created_at",
       )
       .single();
 
@@ -616,7 +616,7 @@ export const branchesController = {
       .update(payload)
       .eq("id", current.id)
       .select(
-        "id, branch_id, service_id, price_amount, currency, duration_min, is_active, created_at"
+        "id, branch_id, service_id, price_amount, currency, duration_min, is_active, created_at",
       )
       .single();
 
