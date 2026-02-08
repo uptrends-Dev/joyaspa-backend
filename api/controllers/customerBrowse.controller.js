@@ -58,7 +58,7 @@ export const customerBrowseController = {
       image_url_4,
       service_categories:category_id ( id, name )
     ),
-    branches:branch_id ( id, name, slug, image_url_1, image_url_2, image_url_3, image_url_4, image_url_5 )
+    branches:branch_id ( id, name, slug, description, image_url_1, image_url_2, image_url_3, image_url_4, image_url_5 )
   `
       )
       .eq("branch_id", branch.id)
@@ -102,6 +102,7 @@ export const customerBrowseController = {
               id: rows[0].branches.id,
               name: rows[0].branches.name,
               slug: rows[0].branches.slug, 
+              description: rows[0].branches.description,
               image_url_1: rows[0].branches.image_url_1,
               image_url_2: rows[0].branches.image_url_2,
               image_url_3: rows[0].branches.image_url_3,
@@ -121,7 +122,7 @@ export const customerBrowseController = {
     let query = supabaseAdmin
       .from("branches")
       .select(
-        "id, name, address, phone, country, city, region, slug, image_url_1, image_url_2, image_url_3, image_url_4, image_url_5"
+        "id, name, address, phone, country, city, region, slug, description, image_url_1, image_url_2, image_url_3, image_url_4, image_url_5"
       )
       .eq("is_active", true);
 

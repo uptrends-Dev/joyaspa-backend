@@ -10,7 +10,7 @@ const allowedSortFields = new Set([
   "slug",
 ]);
 const BRANCH_SELECT =
-  "id, name, address, phone, is_active, created_at, country, city, region, slug, image_url_1, image_url_2, image_url_3, image_url_4, image_url_5";
+  "id, name, address, phone, is_active, created_at, country, city, region, slug, description, image_url_1, image_url_2, image_url_3, image_url_4, image_url_5";
 
 /** Resolve branch by id (numeric) or slug (string). Returns { id } or null. */
 async function resolveBranchByIdOrSlug(idOrSlug) {
@@ -129,6 +129,7 @@ export const branchesController = {
       city = null,
       region = null,
       slug = null,
+      description = null,
       image_url_1 = null,
       image_url_2 = null,
       image_url_3 = null,
@@ -163,6 +164,7 @@ export const branchesController = {
       image_url_3,
       image_url_4,
       image_url_5,
+      description,
     };
 
     const { data: branch, error } = await supabaseAdmin
@@ -200,6 +202,7 @@ export const branchesController = {
       image_url_3,
       image_url_4,
       image_url_5,
+      description,
     } = req.body;
 
     const updates = {};
@@ -217,6 +220,7 @@ export const branchesController = {
     if (country !== undefined) updates.country = country;
     if (city !== undefined) updates.city = city;
     if (region !== undefined) updates.region = region;
+    if (description !== undefined) updates.description = description;
 
     // slug: if explicitly sent use it, else if name was updated auto-generate from new name
     if (slug !== undefined && typeof slug === "string" && slug.trim()) {
