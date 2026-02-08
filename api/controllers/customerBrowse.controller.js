@@ -34,6 +34,14 @@ export const customerBrowseController = {
     if (!branch) return next(new AppError("Branch not found", 404));
     if (!branch.is_active)
       return next(new AppError("Branch is not active", 404));
+
+    // Fetch full branch details (description, images) for response
+    const { data: fullBranch } = await supabaseAdmin
+      .from("branches")
+      .select("id, name, slug, description, image_url_1, image_url_2, image_url_3, image_url_4, image_url_5")
+      .eq("id", branch.id)
+      .single();
+
     let q = supabaseAdmin
       .from("branch_service_pricing")
       .select(
@@ -94,23 +102,32 @@ export const customerBrowseController = {
           : null,
       }));
 
+    const branchData = fullBranch || {
+      id: branch.id,
+      name: branch.name,
+      slug: branch.slug,
+      description: null,
+      image_url_1: null,
+      image_url_2: null,
+      image_url_3: null,
+      image_url_4: null,
+      image_url_5: null,
+    };
+
     return res.status(200).json({
       status: "success",
       data: {
-        branch: rows?.[0]?.branches
-          ? {
-              id: rows[0].branches.id,
-              name: rows[0].branches.name,
-              slug: rows[0].branches.slug, 
-              description: rows[0].branches.description,
-              image_url_1: rows[0].branches.image_url_1,
-              image_url_2: rows[0].branches.image_url_2,
-              image_url_3: rows[0].branches.image_url_3,
-              image_url_4: rows[0].branches.image_url_4,
-              image_url_5: rows[0].branches.image_url_5,
-            }
-          : { id: branch.id, name: branch.name, slug: branch.slug, image_url_1: branch.image_url_1, image_url_2: branch.image_url_2, image_url_3: branch.image_url_3, image_url_4: branch.image_url_4, image_url_5: branch.image_url_5 },
-        // category_id: category_id !== undefined ? Number(category_id) : null,
+        branch: {
+          id: branchData.id,
+          name: branchData.name,
+          slug: branchData.slug,
+          description: branchData.description,
+          image_url_1: branchData.image_url_1,
+          image_url_2: branchData.image_url_2,
+          image_url_3: branchData.image_url_3,
+          image_url_4: branchData.image_url_4,
+          image_url_5: branchData.image_url_5,
+        },
         services,
       },
     });
