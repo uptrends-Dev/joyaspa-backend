@@ -12,5 +12,5 @@ router.get("/branches", customerBrowseController.getBranches);
 router.get("/categories", customerBrowseController.getCategories);
 router.get("/countries", customerBrowseController.getCountries);
 router.get("/cities", customerBrowseController.getCities);
-
+router.get("/branches/:branchId/hotel", customerBrowseController.getHotelByBranchId);
 export default router;

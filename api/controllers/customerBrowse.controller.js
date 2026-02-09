@@ -38,7 +38,9 @@ export const customerBrowseController = {
     // Fetch full branch details (description, images) for response
     const { data: fullBranch } = await supabaseAdmin
       .from("branches")
-      .select("id, name, slug, description, image_url_1, image_url_2, image_url_3, image_url_4, image_url_5")
+      .select(
+        "id, name, slug, description, image_url_1, image_url_2, image_url_3, image_url_4, image_url_5",
+      )
       .eq("id", branch.id)
       .single();
 
@@ -67,7 +69,7 @@ export const customerBrowseController = {
       service_categories:category_id ( id, name )
     ),
     branches:branch_id ( id, name, slug, description, image_url_1, image_url_2, image_url_3, image_url_4, image_url_5 )
-  `
+  `,
       )
       .eq("branch_id", branch.id)
       .eq("is_active", true)
@@ -139,7 +141,7 @@ export const customerBrowseController = {
     let query = supabaseAdmin
       .from("branches")
       .select(
-        "id, name, address, phone, country, city, region, slug, description, image_url_1, image_url_2, image_url_3, image_url_4, image_url_5"
+        "id, name, address, phone, country, city, region, slug, description, image_url_1, image_url_2, image_url_3, image_url_4, image_url_5",
       )
       .eq("is_active", true);
 
@@ -251,6 +253,35 @@ export const customerBrowseController = {
           country: country || null,
         },
       },
+    });
+  }),
+  // GET /api/customer/browse/branches/:branchId/hotel
+  getHotelByBranchId: catchAsync(async (req, res, next) => {
+    const { branchId } = req.params;
+    const branch = await resolveBranchByIdOrSlug(branchId);
+    if (!branch) return next(new AppError("Branch not found", 404));
+    if (!branch.is_active)
+      return next(new AppError("Branch is not active", 404));
+
+    const { data: branchRow } = await supabaseAdmin
+      .from("branches")
+      .select("hotel_id")
+      .eq("id", branch.id)
+      .single();
+
+    if (!branchRow?.hotel_id) return next(new AppError("Hotel not found", 404));
+
+    const { data: hotel, error: hErr } = await supabaseAdmin
+      .from("hotels")
+      .select("id, name, title, description, image_url_1")
+      .eq("id", branchRow.hotel_id)
+      .single();
+
+    if (hErr || !hotel) return next(new AppError("Hotel not found", 404));
+
+    return res.status(200).json({
+      status: "success",
+      data: { hotel },
     });
   }),
 };

@@ -10,7 +10,7 @@ const allowedSortFields = new Set([
   "slug",
 ]);
 const BRANCH_SELECT =
-  "id, name, address, phone, is_active, created_at, country, city, region, slug, description, image_url_1, image_url_2, image_url_3, image_url_4, image_url_5";
+  "id, name, address, phone, is_active, created_at, country, city, region, slug, description, hotel_id, image_url_1, image_url_2, image_url_3, image_url_4, image_url_5";
 
 /** Resolve branch by id (numeric) or slug (string). Returns { id } or null. */
 async function resolveBranchByIdOrSlug(idOrSlug) {
@@ -112,9 +112,19 @@ export const branchesController = {
 
     if (error || !branch) return next(new AppError("Branch not found", 404));
 
+    let hotel = null;
+    if (branch.hotel_id != null) {
+      const { data: hotelData } = await supabaseAdmin
+        .from("hotels")
+        .select("id, name, title, description, image_url_1")
+        .eq("id", branch.hotel_id)
+        .single();
+      hotel = hotelData;
+    }
+
     return res.status(200).json({
       status: "success",
-      data: { branch },
+      data: { branch, ...(hotel ? { hotel } : {}) },
     });
   }),
 
@@ -135,11 +145,22 @@ export const branchesController = {
       image_url_3 = null,
       image_url_4 = null,
       image_url_5 = null,
+      hotel_name = null,
+      hotel_title = null,
+      hotel_description = null,
+      hotel_image_url_1 = null,
     } = req.body;
 
     if (!name || typeof name !== "string" || !name.trim()) {
       return next(new AppError("name is required", 400));
     }
+
+    const hotel_payload = {
+      name: (hotel_name ?? "").toString().trim() || "Hotel",
+      title: (hotel_title ?? "").toString().trim() || "",
+      description: (hotel_description ?? "").toString().trim() || null,
+      image_url_1: (hotel_image_url_1 ?? "").toString().trim() || null,
+    };
 
     const finalSlug =
       slug && typeof slug === "string" && slug.trim()
@@ -150,6 +171,14 @@ export const branchesController = {
             .replace(/[^a-z0-9-]/g, "")
         : slugify(name);
 
+    const { data: hotel, error: hotelError } = await supabaseAdmin
+      .from("hotels")
+      .insert([hotel_payload])
+      .select("id, name, title, description, image_url_1")
+      .single();
+    if (hotelError || !hotel) {
+      return next(new AppError("Failed to create hotel", 500));
+    }
     const payload = {
       name: name.trim(),
       address,
@@ -167,6 +196,7 @@ export const branchesController = {
       description,
     };
 
+    payload.hotel_id = hotel.id;
     const { data: branch, error } = await supabaseAdmin
       .from("branches")
       .insert([payload])
@@ -178,11 +208,11 @@ export const branchesController = {
 
     return res.status(201).json({
       status: "success",
-      data: { branch },
+      data: { branch, hotel },
     });
   }),
 
-  // PUT /api/admin/branches/:id (id can be numeric id or slug)
+  // PUT /api/admin/branches/:id
   update: catchAsync(async (req, res, next) => {
     const { id } = req.params;
     const resolved = await resolveBranchByIdOrSlug(id);
@@ -203,57 +233,128 @@ export const branchesController = {
       image_url_4,
       image_url_5,
       description,
+      hotel_name,
+      hotel_title,
+      hotel_description,
+      hotel_image_url_1,
     } = req.body;
 
-    const updates = {};
+    const branchUpdates = {};
+    const hotelUpdates = {};
 
+    // Branch fields
     if (name !== undefined) {
-      if (typeof name !== "string" || !name.trim()) {
+      if (typeof name !== "string" || !name.trim())
         return next(new AppError("name must be a non-empty string", 400));
-      }
-      updates.name = name.trim();
+      branchUpdates.name = name.trim();
     }
 
-    if (address !== undefined) updates.address = address;
-    if (phone !== undefined) updates.phone = phone;
-    if (is_active !== undefined) updates.is_active = Boolean(is_active);
-    if (country !== undefined) updates.country = country;
-    if (city !== undefined) updates.city = city;
-    if (region !== undefined) updates.region = region;
-    if (description !== undefined) updates.description = description;
+    if (address !== undefined) branchUpdates.address = address;
+    if (phone !== undefined) branchUpdates.phone = phone;
+    if (is_active !== undefined) branchUpdates.is_active = Boolean(is_active);
+    if (country !== undefined) branchUpdates.country = country;
+    if (city !== undefined) branchUpdates.city = city;
+    if (region !== undefined) branchUpdates.region = region;
+    if (description !== undefined) branchUpdates.description = description;
 
-    // slug: if explicitly sent use it, else if name was updated auto-generate from new name
+    // slug
     if (slug !== undefined && typeof slug === "string" && slug.trim()) {
-      updates.slug = slug
+      branchUpdates.slug = slug
         .trim()
         .toLowerCase()
         .replace(/\s+/g, "-")
         .replace(/[^a-z0-9-]/g, "");
     } else if (name !== undefined) {
-      updates.slug = slugify(name.trim());
+      branchUpdates.slug = slugify(name.trim());
     }
-    if (image_url_1 !== undefined) updates.image_url_1 = image_url_1;
-    if (image_url_2 !== undefined) updates.image_url_2 = image_url_2;
-    if (image_url_3 !== undefined) updates.image_url_3 = image_url_3;
-    if (image_url_4 !== undefined) updates.image_url_4 = image_url_4;
-    if (image_url_5 !== undefined) updates.image_url_5 = image_url_5;
 
-    if (Object.keys(updates).length === 0) {
+    if (image_url_1 !== undefined) branchUpdates.image_url_1 = image_url_1;
+    if (image_url_2 !== undefined) branchUpdates.image_url_2 = image_url_2;
+    if (image_url_3 !== undefined) branchUpdates.image_url_3 = image_url_3;
+    if (image_url_4 !== undefined) branchUpdates.image_url_4 = image_url_4;
+    if (image_url_5 !== undefined) branchUpdates.image_url_5 = image_url_5;
+
+    // Hotel fields (mapping to hotels columns)
+    if (hotel_name !== undefined) {
+      if (typeof hotel_name !== "string" || !hotel_name.trim())
+        return next(new AppError("hotel_name must be a non-empty string", 400));
+      hotelUpdates.name = hotel_name.trim();
+    }
+
+    if (hotel_title !== undefined) {
+      if (typeof hotel_title !== "string" || !hotel_title.trim())
+        return next(
+          new AppError("hotel_title must be a non-empty string", 400),
+        );
+      hotelUpdates.title = hotel_title.trim();
+    }
+
+    if (hotel_description !== undefined) {
+      if (typeof hotel_description !== "string" || !hotel_description.trim())
+        return next(
+          new AppError("hotel_description must be a non-empty string", 400),
+        );
+      hotelUpdates.description = hotel_description.trim();
+    }
+
+    if (hotel_image_url_1 !== undefined) {
+      if (typeof hotel_image_url_1 !== "string" || !hotel_image_url_1.trim())
+        return next(
+          new AppError("hotel_image_url_1 must be a non-empty string", 400),
+        );
+      hotelUpdates.image_url_1 = hotel_image_url_1.trim();
+    }
+
+    if (
+      Object.keys(branchUpdates).length === 0 &&
+      Object.keys(hotelUpdates).length === 0
+    ) {
       return next(new AppError("No fields to update", 400));
     }
 
-    const { data: branch, error } = await supabaseAdmin
-      .from("branches")
-      .update(updates)
-      .eq("id", resolved.id)
-      .select(BRANCH_SELECT)
-      .single();
+    // Update branch (only if needed)
+    let branch = null;
+    if (Object.keys(branchUpdates).length) {
+      const { data, error } = await supabaseAdmin
+        .from("branches")
+        .update(branchUpdates)
+        .eq("id", resolved.id)
+        .select(BRANCH_SELECT)
+        .single();
 
-    if (error || !branch) return next(new AppError("Branch not found", 404));
+      if (error || !data)
+        return next(new AppError("Failed to update branch", 500));
+      branch = data;
+    } else {
+      // لو ماحدّثتش الفرع، هات بياناته عشان نعرف hotel_id
+      const { data, error } = await supabaseAdmin
+        .from("branches")
+        .select(BRANCH_SELECT)
+        .eq("id", resolved.id)
+        .single();
+
+      if (error || !data) return next(new AppError("Branch not found", 404));
+      branch = data;
+    }
+
+    // Update hotel (only if needed and branch has hotel_id)
+    let hotel = null;
+    if (Object.keys(hotelUpdates).length && branch.hotel_id != null) {
+      const { data, error } = await supabaseAdmin
+        .from("hotels")
+        .update(hotelUpdates)
+        .eq("id", branch.hotel_id)
+        .select("id, name, title, description, image_url_1")
+        .single();
+
+      if (error || !data)
+        return next(new AppError("Failed to update hotel", 500));
+      hotel = data;
+    }
 
     return res.status(200).json({
       status: "success",
-      data: { branch },
+      data: { branch, ...(hotel ? { hotel } : {}) },
     });
   }),
 
@@ -302,7 +403,16 @@ export const branchesController = {
       );
     }
 
-    // 4) safe to delete
+    // 4) Get hotel_id before deleting branch (resolved only has id)
+    const { data: branchToDelete } = await supabaseAdmin
+      .from("branches")
+      .select("hotel_id")
+      .eq("id", resolved.id)
+      .single();
+
+    const hotelId = branchToDelete?.hotel_id;
+
+    // 5) Delete branch
     const { error: dErr } = await supabaseAdmin
       .from("branches")
       .delete()
@@ -312,9 +422,21 @@ export const branchesController = {
       return next(new AppError("Failed to delete branch", 500));
     }
 
+    // 6) Delete hotel (only if branch had one)
+    if (hotelId != null) {
+      const { error: hErr } = await supabaseAdmin
+        .from("hotels")
+        .delete()
+        .eq("id", hotelId);
+
+      if (hErr) {
+        return next(new AppError("Failed to delete hotel", 500));
+      }
+    }
+
     return res.status(200).json({
       status: "success",
-      message: "Branch deleted successfully",
+      message: hotelId != null ? "Branch and hotel deleted successfully" : "Branch deleted successfully",
     });
   }),
 
