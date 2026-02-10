@@ -62,6 +62,13 @@
 | `PATCH`  | `/:id/services/:service_id` | Toggle branch service active  | ✅   |
 | `DELETE` | `/:id/services/:service_id` | Remove service from branch    | ✅   |
 
+### رفع الصور (Image Upload)
+
+| Method | Endpoint               | Description                          | Auth |
+| ------ | ---------------------- | ------------------------------------ | ---- |
+| `POST` | `/:id/images/:slot`    | رفع صورة فرع (slot = 1–5)، body: `file` | ✅   |
+| `POST` | `/:id/hotel/image`     | رفع صورة الفندق التابع للفرع، body: `file` | ✅   |
+
 ---
 
 ## 📂 Admin Categories

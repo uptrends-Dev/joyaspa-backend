@@ -22,4 +22,5 @@ router.patch("/:id/services/:service_id", branchesController.toggleActiveBranchS
 router.get("/:id/services/:service_id", branchesController.getBranchService);
 router.put("/:id/services/:service_id", branchesController.updateBranchService);
 router.post("/:id/images/:slot", upload.single("file"), branchesController.uploadImage);
+router.post("/:id/hotel/image", upload.single("file"), branchesController.uploadHotelImage);
 export default router;

@@ -488,6 +488,7 @@ export const branchesController = {
       },
     });
   }),
+
   // POST /api/admin/branches/:id/services (id can be numeric id or slug)
   createBranchService: catchAsync(async (req, res, next) => {
     const { id } = req.params;
@@ -528,6 +529,7 @@ export const branchesController = {
       data: { branchService },
     });
   }),
+
   // GET /api/admin/branches/:id/services (id can be numeric id or slug)
   getBranchServices: catchAsync(async (req, res, next) => {
     const { id } = req.params;
@@ -562,6 +564,7 @@ export const branchesController = {
       data: { services },
     });
   }),
+
   // DELETE /api/admin/branches/:id/services/:service_id (id can be numeric id or slug)
   deleteBranchService: catchAsync(async (req, res, next) => {
     const { id, service_id } = req.params;
@@ -751,6 +754,7 @@ export const branchesController = {
 
     return res.status(200).json({ status: "success", data: { branchService } });
   }),
+  
   // POST /api/admin/branches/:id/images/:slot (id can be numeric id or slug, slot 1-5)
   uploadImage: catchAsync(async (req, res, next) => {
     const { id, slot } = req.params;
@@ -793,5 +797,51 @@ export const branchesController = {
     return res
       .status(200)
       .json({ status: "success", data: { branch: updated, url } });
+  }),
+
+  // POST /api/admin/branches/:id/hotel/image — رفع صورة الفندق على Supabase (id يمكن أن يكون رقم أو slug)
+  uploadHotelImage: catchAsync(async (req, res, next) => {
+    const { id } = req.params;
+    if (!req.file) return next(new AppError("No file uploaded", 400));
+
+    const resolved = await resolveBranchByIdOrSlug(id);
+    if (!resolved) return next(new AppError("Branch not found", 404));
+
+    const { data: branch } = await supabaseAdmin
+      .from("branches")
+      .select("hotel_id")
+      .eq("id", resolved.id)
+      .single();
+    if (!branch?.hotel_id)
+      return next(new AppError("Branch has no hotel", 400));
+
+    const ext = req.file.originalname.split(".").pop();
+    const path = `hotels/${branch.hotel_id}/image-${Date.now()}.${ext}`;
+
+    const { error: upErr } = await supabaseAdmin.storage
+      .from("hotels")
+      .upload(path, req.file.buffer, {
+        contentType: req.file.mimetype,
+        upsert: true,
+      });
+
+    if (upErr) return next(new AppError(upErr.message, 500));
+
+    const { data: urlData } = supabaseAdmin.storage.from("hotels").getPublicUrl(path);
+    const url = urlData.publicUrl;
+
+    const { data: hotel, error: uErr } = await supabaseAdmin
+      .from("hotels")
+      .update({ image_url_1: url })
+      .eq("id", branch.hotel_id)
+      .select("id, name, title, description, image_url_1")
+      .single();
+
+    if (uErr || !hotel)
+      return next(new AppError("Failed to update hotel image", 500));
+
+    return res
+      .status(200)
+      .json({ status: "success", data: { hotel, url } });
   }),
 };
