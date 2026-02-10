@@ -844,4 +844,5 @@ export const branchesController = {
       .status(200)
       .json({ status: "success", data: { hotel, url } });
   }),
+  
 };
