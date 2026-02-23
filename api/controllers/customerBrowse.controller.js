@@ -102,7 +102,8 @@ export const customerBrowseController = {
               name: r.services.service_categories.name,
             }
           : null,
-      }));
+      }))
+      .sort((a, b) => (Number(a.price_amount) ?? 0) - (Number(b.price_amount) ?? 0));
 
     const branchData = fullBranch || {
       id: branch.id,
