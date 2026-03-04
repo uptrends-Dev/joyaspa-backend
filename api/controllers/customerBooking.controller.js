@@ -1,7 +1,7 @@
 import catchAsync from "../lib/catchAsync.js";
 import AppError from "../lib/AppError.js";
 import { supabaseAdmin } from "../lib/supabaseAdmin.js";
-import { sendBookingEmail } from "../lib/sendBookingEmail.js"; // ✅ عدّل المسار حسب مشروعك
+import { sendBookingEmail, sendBookingEmailToAdmin } from "../lib/sendBookingEmail.js";
 
 export const customerBookingController = {
   create: catchAsync(async (req, res, next) => {
@@ -53,7 +53,7 @@ export const customerBookingController = {
         gender: norm(customer.gender),
         nationality: norm(customer.nationality),
       })
-      .select("id, first_name, last_name, email")
+      .select("id, first_name, last_name, email, phone")
       .single();
 
     if (createCustomerError) return next(createCustomerError);
@@ -158,32 +158,39 @@ export const customerBookingController = {
         currency: item.currency_snapshot,
       }));
 
-      // ✅ إرسال الإيميل (لو فيه email)
+      const emailPayload = {
+        booking: {
+          id: booking.id,
+          date: booking.date,
+          branch_id,
+          branch_name: branchName,
+          notes: booking.notes,
+        },
+        customer: {
+          first_name: newCustomer.first_name,
+          last_name: newCustomer.last_name,
+          email: newCustomer.email,
+          phone: newCustomer.phone,
+        },
+        items: itemsBreakdown,
+        totals: {
+          grand_total: grandTotal,
+          currency: itemsBreakdown?.[0]?.currency || null,
+        },
+      };
+
       if (newCustomer.email) {
         try {
-          await sendBookingEmail({
-            booking: {
-              id: booking.id,
-              date: booking.date,
-              branch_id,
-              branch_name: branchName,
-              notes: booking.notes,
-            },
-            customer: {
-              first_name: newCustomer.first_name,
-              last_name: newCustomer.last_name,
-              email: newCustomer.email,
-            },
-            items: itemsBreakdown,
-            totals: {
-              grand_total: grandTotal,
-              currency: itemsBreakdown?.[0]?.currency || null,
-            },
-          });
+          await sendBookingEmail(emailPayload);
         } catch (emailErr) {
-          // مهم: ما تفشلش الحجز بسبب الإيميل
           console.error("Failed to send booking email:", emailErr);
         }
+      }
+
+      try {
+        await sendBookingEmailToAdmin(emailPayload);
+      } catch (adminEmailErr) {
+        console.error("Failed to send admin booking email:", adminEmailErr);
       }
 
       return res.status(201).json({
