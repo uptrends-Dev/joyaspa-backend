@@ -112,6 +112,7 @@ export const customerBrowseController = {
       id: branch.id,
       name: branch.name,
       slug: branch.slug,
+      address: branch.address,
       description: null,
       image_url_1: null,
       image_url_2: null,
