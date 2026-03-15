@@ -89,6 +89,7 @@ export const customerBrowseController = {
         description: r.services.description,
         price_amount: r.price_amount,
         currency: r.currency,
+        address: r.branches.address,
         // duration_min: r.duration_min,
         duration_min: r.services.default_duration_min,
         image_url_1: r.services.image_url_1,
