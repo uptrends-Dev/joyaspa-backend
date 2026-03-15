@@ -39,7 +39,7 @@ export const customerBrowseController = {
     const { data: fullBranch } = await supabaseAdmin
       .from("branches")
       .select(
-        "id, name, slug, description, image_url_1, image_url_2, image_url_3, image_url_4, image_url_5",
+        "id, address, name, slug, description, image_url_1, image_url_2, image_url_3, image_url_4, image_url_5",
       )
       .eq("id", branch.id)
       .single();
@@ -103,7 +103,9 @@ export const customerBrowseController = {
             }
           : null,
       }))
-      .sort((a, b) => (Number(a.price_amount) ?? 0) - (Number(b.price_amount) ?? 0));
+      .sort(
+        (a, b) => (Number(a.price_amount) ?? 0) - (Number(b.price_amount) ?? 0),
+      );
 
     const branchData = fullBranch || {
       id: branch.id,
