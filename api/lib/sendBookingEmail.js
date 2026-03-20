@@ -333,7 +333,7 @@ function buildBookingEmailHtmlToAdmin({ booking, customer, items, totals }) {
           }
         </div>
         <div style="background-color:#f9fafb;padding:20px;text-align:center;border-top:1px solid #e5e7eb;">
-          <p style="margin:0;font-size:12px;color:#9ca3af;">Joya Spa — Admin notification. Reply to customer to confirm the appointment.</p>
+          <p style="margin:0;font-size:12px;color:#9ca3af;"> <a href="https://joyaspa.net">Joya Spa — Admin notification. Reply to customer to confirm the appointment.</a></p>
         </div>
       </div>
     </div>

@@ -13,6 +13,8 @@ import customerBrowseRoutes from "./routes/customer.browse.routes.js";
 import customerBookingsRoutes from "./routes/customer.bookings.routes.js";
 import branchesRoutes from "./routes/admin.branches.routes.js";
 import adminDashboardRoutes from "./routes/admin.dashboard.routes.js";
+import adminPromoCodesRoutes from "./routes/admin.promo.codes.routes.js";
+import customerPromoCodesRoutes from "./routes/customer.promo.codes.routes.js";
 import swaggerUi from "swagger-ui-express";
 import { swaggerSpec } from "./docs/swagger.js";
 
@@ -47,8 +49,10 @@ app.use("/api/admin/pricing", adminPricingRoutes);
 app.use("/api/admin/branches", branchesRoutes);
 app.use("/api/admin/bookings", adminBookingsRoutes);
 app.use("/api/admin/dashboard", adminDashboardRoutes);
+app.use("/api/admin/promo-codes", adminPromoCodesRoutes);
 app.use("/api/customer/browse", customerBrowseRoutes);
 app.use("/api/customer/bookings", customerBookingsRoutes);
+app.use("/api/customer/promo-codes", customerPromoCodesRoutes);
 
 // Global error handler (لازم آخر حاجة)
 app.use(globalErrorHandler);

@@ -125,6 +125,12 @@ export const bookingsController = {
       status,
       date,
       total_amount,
+      requires_transfer,
+      pickup_location,
+      promo_code_id,
+      promo_code_snapshot,
+      subtotal_amount,
+      discount_amount,
       notes,
       created_at,
       branches ( id, name ),
@@ -202,6 +208,17 @@ export const bookingsController = {
         date: booking.date,
         notes: booking.notes,
         created_at: booking.created_at,
+        transfer: {
+          requires_transfer: Boolean(booking.requires_transfer),
+          pickup_location: booking.pickup_location ?? null,
+        },
+
+        promo: {
+          promo_code_id: booking.promo_code_id ?? null,
+          promo_code_snapshot: booking.promo_code_snapshot ?? null,
+          subtotal_amount: booking.subtotal_amount ?? null,
+          discount_amount: booking.discount_amount ?? null,
+        },
 
         branch: {
           id: booking.branches?.id || booking.branch_id,

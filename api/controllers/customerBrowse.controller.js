@@ -103,7 +103,9 @@ export const customerBrowseController = {
             }
           : null,
       }))
-      .sort((a, b) => (Number(a.price_amount) ?? 0) - (Number(b.price_amount) ?? 0));
+      .sort(
+        (a, b) => (Number(a.price_amount) ?? 0) - (Number(b.price_amount) ?? 0),
+      );
 
     const branchData = fullBranch || {
       id: branch.id,
@@ -137,18 +139,23 @@ export const customerBrowseController = {
   }),
 
   getBranches: catchAsync(async (req, res, next) => {
-    const { city, country } = req.query;
+    const { city, country, governorate } = req.query;
 
     let query = supabaseAdmin
       .from("branches")
       .select(
-        "id, name, address, phone, country, city, region, slug, description, image_url_1, image_url_2, image_url_3, image_url_4, image_url_5",
+        "id, name, address, phone, country, governorate, city, region, slug, description, image_url_1, image_url_2, image_url_3, image_url_4, image_url_5",
       )
       .eq("is_active", true);
 
     // Filter by country (case-insensitive)
     if (country) {
       query = query.ilike("country", `%${country}%`);
+    }
+
+    // Filter by governorate (case-insensitive)
+    if (governorate) {
+      query = query.ilike("governorate", `%${governorate}%`);
     }
 
     // Filter by city (case-insensitive)
@@ -171,6 +178,7 @@ export const customerBrowseController = {
         filters: {
           city: city || null,
           country: country || null,
+          governorate: governorate || null,
         },
       },
     });
@@ -222,19 +230,20 @@ export const customerBrowseController = {
 
   // GET /api/customer/browse/cities
   getCities: catchAsync(async (req, res, next) => {
-    const { country } = req.query;
+    const { country, governorate } = req.query;
 
     let query = supabaseAdmin
       .from("branches")
-      .select("city, country")
+      .select("city, country, governorate")
       .eq("is_active", true)
       .not("city", "is", null);
-
     // Filter by country if provided
     if (country) {
       query = query.ilike("country", `%${country}%`);
     }
-
+    if (governorate) {
+      query = query.ilike("governorate", `%${governorate}%`);
+    }
     const { data: branches, error } = await query;
 
     if (error) {
@@ -252,6 +261,7 @@ export const customerBrowseController = {
         cities,
         filter: {
           country: country || null,
+          governorate: governorate || null,
         },
       },
     });

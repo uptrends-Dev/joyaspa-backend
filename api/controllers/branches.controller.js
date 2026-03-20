@@ -8,9 +8,10 @@ const allowedSortFields = new Set([
   "created_at",
   "is_active",
   "slug",
+  "governorate",
 ]);
 const BRANCH_SELECT =
-  "id, name, address, phone, is_active, created_at, country, city, region, slug, description, hotel_id, image_url_1, image_url_2, image_url_3, image_url_4, image_url_5";
+  "id, name, address, phone, is_active, created_at, country, city, region, governorate, slug, description, hotel_id, image_url_1, image_url_2, image_url_3, image_url_4, image_url_5";
 
 /** Resolve branch by id (numeric) or slug (string). Returns { id } or null. */
 async function resolveBranchByIdOrSlug(idOrSlug) {
@@ -138,6 +139,7 @@ export const branchesController = {
       country = null,
       city = null,
       region = null,
+      governorate = null,
       slug = null,
       description = null,
       image_url_1 = null,
@@ -187,6 +189,7 @@ export const branchesController = {
       country,
       city,
       region,
+      governorate,
       slug: finalSlug || "branch",
       image_url_1,
       image_url_2,
@@ -226,6 +229,7 @@ export const branchesController = {
       country,
       city,
       region,
+      governorate,
       slug,
       image_url_1,
       image_url_2,
@@ -255,6 +259,7 @@ export const branchesController = {
     if (country !== undefined) branchUpdates.country = country;
     if (city !== undefined) branchUpdates.city = city;
     if (region !== undefined) branchUpdates.region = region;
+    if (governorate !== undefined) branchUpdates.governorate = governorate;
     if (description !== undefined) branchUpdates.description = description;
 
     // slug
@@ -436,7 +441,10 @@ export const branchesController = {
 
     return res.status(200).json({
       status: "success",
-      message: hotelId != null ? "Branch and hotel deleted successfully" : "Branch deleted successfully",
+      message:
+        hotelId != null
+          ? "Branch and hotel deleted successfully"
+          : "Branch deleted successfully",
     });
   }),
 
@@ -754,7 +762,7 @@ export const branchesController = {
 
     return res.status(200).json({ status: "success", data: { branchService } });
   }),
-  
+
   // POST /api/admin/branches/:id/images/:slot (id can be numeric id or slug, slot 1-5)
   uploadImage: catchAsync(async (req, res, next) => {
     const { id, slot } = req.params;
@@ -827,7 +835,9 @@ export const branchesController = {
 
     if (upErr) return next(new AppError(upErr.message, 500));
 
-    const { data: urlData } = supabaseAdmin.storage.from("hotels").getPublicUrl(path);
+    const { data: urlData } = supabaseAdmin.storage
+      .from("hotels")
+      .getPublicUrl(path);
     const url = urlData.publicUrl;
 
     const { data: hotel, error: uErr } = await supabaseAdmin
@@ -840,9 +850,6 @@ export const branchesController = {
     if (uErr || !hotel)
       return next(new AppError("Failed to update hotel image", 500));
 
-    return res
-      .status(200)
-      .json({ status: "success", data: { hotel, url } });
+    return res.status(200).json({ status: "success", data: { hotel, url } });
   }),
-  
 };

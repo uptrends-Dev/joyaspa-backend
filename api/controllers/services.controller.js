@@ -365,7 +365,7 @@ export const servicesController = {
       data: { service },
     });
   }),
-   // POST /api/admin/services/:id/images/:slot
+  // POST /api/admin/services/:id/images/:slot
   uploadImage: catchAsync(async (req, res, next) => {
     const { id, slot } = req.params;
     const slotNum = Number(slot);
