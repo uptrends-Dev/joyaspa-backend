@@ -39,7 +39,7 @@ export const customerBrowseController = {
     const { data: fullBranch } = await supabaseAdmin
       .from("branches")
       .select(
-        "id, name, slug, description, image_url_1, image_url_2, image_url_3, image_url_4, image_url_5",
+        "id, address, name, slug, description, image_url_1, image_url_2, image_url_3, image_url_4, image_url_5",
       )
       .eq("id", branch.id)
       .single();
@@ -89,6 +89,7 @@ export const customerBrowseController = {
         description: r.services.description,
         price_amount: r.price_amount,
         currency: r.currency,
+        address: r.branches.address,
         // duration_min: r.duration_min,
         duration_min: r.services.default_duration_min,
         image_url_1: r.services.image_url_1,
@@ -111,6 +112,7 @@ export const customerBrowseController = {
       id: branch.id,
       name: branch.name,
       slug: branch.slug,
+      address: branch.address,
       description: null,
       image_url_1: null,
       image_url_2: null,
@@ -126,6 +128,7 @@ export const customerBrowseController = {
           id: branchData.id,
           name: branchData.name,
           slug: branchData.slug,
+          address: branchData.address,
           description: branchData.description,
           image_url_1: branchData.image_url_1,
           image_url_2: branchData.image_url_2,
