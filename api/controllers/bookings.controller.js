@@ -1,6 +1,9 @@
+import * as XLSX from "xlsx";
 import catchAsync from "../lib/catchAsync.js";
 import AppError from "../lib/AppError.js";
 import { supabaseAdmin } from "../lib/supabaseAdmin.js";
+
+const EXPORT_MAX_ROWS = 10000;
 
 const allowedSortFields = new Set(["created_at", "date", "total_amount", "id"]);
 const allowedStatuses = new Set([
@@ -108,6 +111,116 @@ export const bookingsController = {
       total: count || 0,
       data: result,
     });
+  }),
+
+  // GET /api/admin/bookings/export
+  exportExcel: catchAsync(async (req, res, next) => {
+    const from = req.query.from;
+    const to = req.query.to;
+    const branch_id = req.query.branch_id
+      ? parseInt(req.query.branch_id, 10)
+      : null;
+    const status = req.query.status || null;
+
+    const sortBy = allowedSortFields.has(req.query.sortBy)
+      ? req.query.sortBy
+      : "created_at";
+    const sortOrder = req.query.sortOrder === "asc" ? "asc" : "desc";
+
+    if (status && !allowedStatuses.has(status)) {
+      return next(new AppError("Invalid status filter", 400));
+    }
+
+    let q = supabaseAdmin.from("bookings").select(
+      `
+        id,
+        branch_id,
+        customer_id,
+        status,
+        date,
+        total_amount,
+        notes,
+        created_at,
+        branches ( id, name ),
+        customers ( id, first_name, last_name, phone )
+      `,
+    );
+
+    if (branch_id) q = q.eq("branch_id", branch_id);
+    if (status) q = q.eq("status", status);
+    if (from) q = q.gte("date", from);
+    if (to) q = q.lte("date", to);
+
+    q = q
+      .order(sortBy, { ascending: sortOrder === "asc" })
+      .limit(EXPORT_MAX_ROWS);
+
+    const { data: bookings, error } = await q;
+
+    if (error) return next(error);
+
+    const bookingIds = (bookings || []).map((b) => b.id);
+    let metaByBookingId = new Map();
+
+    if (bookingIds.length) {
+      const { data: itemsMeta, error: metaError } = await supabaseAdmin
+        .from("booking_items")
+        .select("booking_id, duration_min_snapshot, price_amount_snapshot")
+        .in("booking_id", bookingIds);
+
+      if (metaError) return next(metaError);
+
+      for (const row of itemsMeta || []) {
+        const prev = metaByBookingId.get(row.booking_id) || {
+          items_count: 0,
+          total_duration: 0,
+        };
+        prev.items_count += 1;
+        prev.total_duration += Number(row.duration_min_snapshot || 0);
+        metaByBookingId.set(row.booking_id, prev);
+      }
+    }
+
+    const rows = (bookings || []).map((b) => {
+      const meta = metaByBookingId.get(b.id) || {
+        items_count: 0,
+        total_duration: 0,
+      };
+      const cust = b.customers;
+      const customerName = `${cust?.first_name || ""} ${cust?.last_name || ""}`.trim();
+      return {
+        "المعرف": b.id,
+        "الفرع": b.branches?.name ?? "",
+        "اسم العميل": customerName,
+        "الجوال": cust?.phone ?? "",
+        "الحالة": b.status,
+        "تاريخ الحجز": b.date,
+        "المبلغ الإجمالي": Number(b.total_amount || 0),
+        "عدد الخدمات": meta.items_count,
+        "المدة (دقيقة)": meta.total_duration,
+        "ملاحظات": b.notes ?? "",
+        "تاريخ الإنشاء": b.created_at,
+      };
+    });
+
+    const ws = XLSX.utils.json_to_sheet(rows);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "الحجوزات");
+    const buffer = XLSX.write(wb, {
+      type: "buffer",
+      bookType: "xlsx",
+    });
+
+    const filename = `bookings-${new Date().toISOString().slice(0, 10)}.xlsx`;
+    res.setHeader(
+      "Content-Disposition",
+      `attachment; filename="${filename}"`,
+    );
+    res.setHeader(
+      "Content-Type",
+      "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+    );
+    res.send(Buffer.from(buffer));
   }),
 
   // GET /api/admin/bookings/:id

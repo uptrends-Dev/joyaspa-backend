@@ -7,6 +7,7 @@ const router = express.Router();
 router.use(protect);
 
 router.get("/", bookingsController.list);
+router.get("/export", bookingsController.exportExcel);
 router.get("/:id", bookingsController.getById);
 router.patch("/:id/status", bookingsController.updateStatus);
 
