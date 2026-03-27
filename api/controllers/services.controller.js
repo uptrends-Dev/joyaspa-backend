@@ -1,6 +1,11 @@
 import catchAsync from "../lib/catchAsync.js";
 import AppError from "../lib/AppError.js";
 import { supabaseAdmin } from "../lib/supabaseAdmin.js";
+import {
+  applyEntityTranslation,
+  getTranslationsMap,
+  resolveLanguageFromQuery,
+} from "../lib/i18n.js";
 
 const allowedSortFields = new Set([
   "id",
@@ -44,6 +49,7 @@ export const servicesController = {
         : req.query.is_active === "true" || req.query.is_active === true;
 
     const search = (req.query.search || "").toString().trim();
+    const language = await resolveLanguageFromQuery(req);
 
     let query = supabaseAdmin.from("services").select(
       `
@@ -76,6 +82,37 @@ export const servicesController = {
 
     if (error) return next(new AppError(`Failed to fetch services`, 500));
 
+    let transformed = services || [];
+    if (language && transformed.length) {
+      const serviceIds = transformed.map((s) => s.id);
+      const categoryIds = transformed.map((s) => s.category_id);
+      const serviceTrMap = await getTranslationsMap("service", serviceIds, language.code);
+      const categoryTrMap = await getTranslationsMap(
+        "category",
+        categoryIds,
+        language.code,
+      );
+
+      transformed = transformed.map((service) => {
+        const translatedService = applyEntityTranslation(
+          service,
+          serviceTrMap.get(Number(service.id)),
+        );
+
+        const category = service.service_categories
+          ? applyEntityTranslation(
+              service.service_categories,
+              categoryTrMap.get(Number(service.category_id)),
+            )
+          : null;
+
+        return {
+          ...translatedService,
+          service_categories: category,
+        };
+      });
+    }
+
     return res.status(200).json({
       status: "success",
       pagination: {
@@ -84,7 +121,10 @@ export const servicesController = {
         total: count ?? 0,
         totalPages: count ? Math.ceil(count / limit) : 0,
       },
-      data: { services },
+      data: {
+        services: transformed,
+        language: language?.code || null,
+      },
     });
   }),
 
@@ -106,6 +146,7 @@ export const servicesController = {
   // GET /api/admin/services/:id
   getById: catchAsync(async (req, res, next) => {
     const { id } = req.params;
+    const language = await resolveLanguageFromQuery(req);
 
     const { data: service, error } = await supabaseAdmin
       .from("services")
@@ -130,9 +171,41 @@ export const servicesController = {
 
     if (error || !service) return next(new AppError("Service not found", 404));
 
+    let transformed = service;
+    if (language && transformed) {
+      const serviceTrMap = await getTranslationsMap(
+        "service",
+        [transformed.id],
+        language.code,
+      );
+      const categoryTrMap = await getTranslationsMap(
+        "category",
+        [transformed.category_id],
+        language.code,
+      );
+
+      transformed = applyEntityTranslation(
+        transformed,
+        serviceTrMap.get(Number(transformed.id)),
+      );
+
+      if (transformed.service_categories) {
+        transformed = {
+          ...transformed,
+          service_categories: applyEntityTranslation(
+            transformed.service_categories,
+            categoryTrMap.get(Number(transformed.category_id)),
+          ),
+        };
+      }
+    }
+
     return res.status(200).json({
       status: "success",
-      data: { service },
+      data: {
+        service: transformed,
+        language: language?.code || null,
+      },
     });
   }),
 

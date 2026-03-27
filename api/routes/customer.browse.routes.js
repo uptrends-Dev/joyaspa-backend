@@ -10,6 +10,7 @@ router.get(
 );
 router.get("/branches", customerBrowseController.getBranches);
 router.get("/categories", customerBrowseController.getCategories);
+router.get("/languages", customerBrowseController.getLanguages);
 router.get("/countries", customerBrowseController.getCountries);
 router.get("/cities", customerBrowseController.getCities);
 router.get("/branches/:branchId/hotel", customerBrowseController.getHotelByBranchId);

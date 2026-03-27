@@ -1,6 +1,11 @@
 import catchAsync from "../lib/catchAsync.js";
 import AppError from "../lib/AppError.js";
 import { supabaseAdmin } from "../lib/supabaseAdmin.js";
+import {
+  applyEntityTranslation,
+  getTranslationsMap,
+  resolveLanguageFromQuery,
+} from "../lib/i18n.js";
 
 /** Resolve branch by id (numeric) or slug (string). Returns branch row or null. */
 async function resolveBranchByIdOrSlug(idOrSlug) {
@@ -29,6 +34,7 @@ export const customerBrowseController = {
     if (category_id !== undefined && !Number.isFinite(Number(category_id))) {
       return next(new AppError("category_id must be a number", 400));
     }
+    const language = await resolveLanguageFromQuery(req);
 
     const branch = await resolveBranchByIdOrSlug(branchId);
     if (!branch) return next(new AppError("Branch not found", 404));
@@ -81,7 +87,7 @@ export const customerBrowseController = {
     const { data: rows, error } = await q;
     if (error) return next(new AppError(error.message, 500));
 
-    const services = (rows || [])
+    let services = (rows || [])
       .filter((r) => r.services)
       .map((r) => ({
         id: r.services.id,
@@ -108,7 +114,7 @@ export const customerBrowseController = {
         (a, b) => (Number(a.price_amount) ?? 0) - (Number(b.price_amount) ?? 0),
       );
 
-    const branchData = fullBranch || {
+    let branchData = fullBranch || {
       id: branch.id,
       name: branch.name,
       slug: branch.slug,
@@ -120,6 +126,42 @@ export const customerBrowseController = {
       image_url_4: null,
       image_url_5: null,
     };
+
+    if (language) {
+      const serviceTrMap = await getTranslationsMap(
+        "service",
+        services.map((s) => s.id),
+        language.code,
+      );
+      const categoryTrMap = await getTranslationsMap(
+        "category",
+        services.map((s) => s.category?.id).filter(Boolean),
+        language.code,
+      );
+      const branchTrMap = await getTranslationsMap("branch", [branchData.id], language.code);
+
+      branchData = applyEntityTranslation(
+        branchData,
+        branchTrMap.get(Number(branchData.id)),
+      );
+
+      services = services.map((service) => {
+        const translatedService = applyEntityTranslation(
+          service,
+          serviceTrMap.get(Number(service.id)),
+        );
+        const translatedCategory = service.category
+          ? applyEntityTranslation(
+              service.category,
+              categoryTrMap.get(Number(service.category.id)),
+            )
+          : null;
+        return {
+          ...translatedService,
+          category: translatedCategory,
+        };
+      });
+    }
 
     return res.status(200).json({
       status: "success",
@@ -137,12 +179,14 @@ export const customerBrowseController = {
           image_url_5: branchData.image_url_5,
         },
         services,
+        language: language?.code || null,
       },
     });
   }),
 
   getBranches: catchAsync(async (req, res, next) => {
     const { city, country, governorate } = req.query;
+    const language = await resolveLanguageFromQuery(req);
 
     let query = supabaseAdmin
       .from("branches")
@@ -174,21 +218,35 @@ export const customerBrowseController = {
       return next(new AppError("Failed to fetch branches", 500));
     }
 
+    let transformedBranches = branches || [];
+    if (language && transformedBranches.length) {
+      const branchTrMap = await getTranslationsMap(
+        "branch",
+        transformedBranches.map((b) => b.id),
+        language.code,
+      );
+      transformedBranches = transformedBranches.map((branch) =>
+        applyEntityTranslation(branch, branchTrMap.get(Number(branch.id))),
+      );
+    }
+
     return res.status(200).json({
       status: "success",
       data: {
-        branches,
+        branches: transformedBranches,
         filters: {
           city: city || null,
           country: country || null,
           governorate: governorate || null,
         },
+        language: language?.code || null,
       },
     });
   }),
 
   // GET /api/customer/browse/categories
   getCategories: catchAsync(async (req, res, next) => {
+    const language = await resolveLanguageFromQuery(req);
     const { data: categories, error } = await supabaseAdmin
       .from("service_categories")
       .select("id, name")
@@ -198,10 +256,44 @@ export const customerBrowseController = {
       return next(new AppError("Failed to fetch categories", 500));
     }
 
+    let transformed = categories || [];
+    if (language && transformed.length) {
+      const categoryTrMap = await getTranslationsMap(
+        "category",
+        transformed.map((c) => c.id),
+        language.code,
+      );
+      transformed = transformed.map((category) =>
+        applyEntityTranslation(category, categoryTrMap.get(Number(category.id))),
+      );
+    }
+
     return res.status(200).json({
       status: "success",
       data: {
-        categories,
+        categories: transformed,
+        language: language?.code || null,
+      },
+    });
+  }),
+
+  // GET /api/customer/browse/languages
+  getLanguages: catchAsync(async (req, res, next) => {
+    const { data: languages, error } = await supabaseAdmin
+      .from("languages")
+      .select("id, code, name, is_default")
+      .eq("is_active", true)
+      .order("is_default", { ascending: false })
+      .order("name", { ascending: true });
+
+    if (error) {
+      return next(new AppError("Failed to fetch languages", 500));
+    }
+
+    return res.status(200).json({
+      status: "success",
+      data: {
+        languages: languages || [],
       },
     });
   }),
@@ -272,6 +364,7 @@ export const customerBrowseController = {
   // GET /api/customer/browse/branches/:branchId/hotel
   getHotelByBranchId: catchAsync(async (req, res, next) => {
     const { branchId } = req.params;
+    const language = await resolveLanguageFromQuery(req);
     const branch = await resolveBranchByIdOrSlug(branchId);
     if (!branch) return next(new AppError("Branch not found", 404));
     if (!branch.is_active)
@@ -293,9 +386,21 @@ export const customerBrowseController = {
 
     if (hErr || !hotel) return next(new AppError("Hotel not found", 404));
 
+    let transformedHotel = hotel;
+    if (language && hotel) {
+      const hotelTrMap = await getTranslationsMap("hotel", [hotel.id], language.code);
+      transformedHotel = applyEntityTranslation(
+        hotel,
+        hotelTrMap.get(Number(hotel.id)),
+      );
+    }
+
     return res.status(200).json({
       status: "success",
-      data: { hotel },
+      data: {
+        hotel: transformedHotel,
+        language: language?.code || null,
+      },
     });
   }),
 };

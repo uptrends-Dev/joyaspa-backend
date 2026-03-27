@@ -1,6 +1,11 @@
 import catchAsync from "../lib/catchAsync.js";
 import AppError from "../lib/AppError.js";
 import { supabaseAdmin } from "../lib/supabaseAdmin.js";
+import {
+  applyEntityTranslation,
+  getTranslationsMap,
+  resolveLanguageFromQuery,
+} from "../lib/i18n.js";
 
 const allowedSortFields = new Set([
   "id",
@@ -66,6 +71,7 @@ export const branchesController = {
         : req.query.is_active === "true" || req.query.is_active === true;
 
     const search = (req.query.search || "").toString().trim();
+    const language = await resolveLanguageFromQuery(req);
 
     let query = supabaseAdmin
       .from("branches")
@@ -87,6 +93,18 @@ export const branchesController = {
 
     if (error) return next(new AppError("Failed to fetch branches", 500));
 
+    let transformed = branches || [];
+    if (language && transformed.length) {
+      const branchTrMap = await getTranslationsMap(
+        "branch",
+        transformed.map((b) => b.id),
+        language.code,
+      );
+      transformed = transformed.map((branch) =>
+        applyEntityTranslation(branch, branchTrMap.get(Number(branch.id))),
+      );
+    }
+
     return res.status(200).json({
       status: "success",
       pagination: {
@@ -95,13 +113,17 @@ export const branchesController = {
         total: count ?? 0,
         totalPages: count ? Math.ceil(count / limit) : 0,
       },
-      data: { branches },
+      data: {
+        branches: transformed,
+        language: language?.code || null,
+      },
     });
   }),
 
   // GET /api/admin/branches/:id (id can be numeric id or slug)
   getById: catchAsync(async (req, res, next) => {
     const { id } = req.params;
+    const language = await resolveLanguageFromQuery(req);
     const resolved = await resolveBranchByIdOrSlug(id);
     if (!resolved) return next(new AppError("Branch not found", 404));
 
@@ -113,6 +135,7 @@ export const branchesController = {
 
     if (error || !branch) return next(new AppError("Branch not found", 404));
 
+    let transformedBranch = branch;
     let hotel = null;
     if (branch.hotel_id != null) {
       const { data: hotelData } = await supabaseAdmin
@@ -123,9 +146,30 @@ export const branchesController = {
       hotel = hotelData;
     }
 
+    if (language) {
+      const branchTrMap = await getTranslationsMap(
+        "branch",
+        [branch.id],
+        language.code,
+      );
+      transformedBranch = applyEntityTranslation(
+        branch,
+        branchTrMap.get(Number(branch.id)),
+      );
+
+      if (hotel) {
+        const hotelTrMap = await getTranslationsMap("hotel", [hotel.id], language.code);
+        hotel = applyEntityTranslation(hotel, hotelTrMap.get(Number(hotel.id)));
+      }
+    }
+
     return res.status(200).json({
       status: "success",
-      data: { branch, ...(hotel ? { hotel } : {}) },
+      data: {
+        branch: transformedBranch,
+        ...(hotel ? { hotel } : {}),
+        language: language?.code || null,
+      },
     });
   }),
 

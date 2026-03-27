@@ -1,6 +1,11 @@
 import catchAsync from "../lib/catchAsync.js";
 import AppError from "../lib/AppError.js";
 import { supabaseAdmin } from "../lib/supabaseAdmin.js";
+import {
+  applyEntityTranslation,
+  getTranslationsMap,
+  resolveLanguageFromQuery,
+} from "../lib/i18n.js";
 
 const allowedSortFields = new Set([
   "sort_order",
@@ -29,6 +34,7 @@ export const categoriesController = {
 
     const from = (page - 1) * limit;
     const to = from + limit - 1;
+    const language = await resolveLanguageFromQuery(req);
 
     const {
       data: categories,
@@ -47,6 +53,18 @@ export const categoriesController = {
       return next(new AppError(`Supabase: ${error.message}`, 500));
     }
 
+    let transformed = categories || [];
+    if (language && transformed.length) {
+      const categoryTrMap = await getTranslationsMap(
+        "category",
+        transformed.map((c) => c.id),
+        language.code,
+      );
+      transformed = transformed.map((category) =>
+        applyEntityTranslation(category, categoryTrMap.get(Number(category.id))),
+      );
+    }
+
     return res.status(200).json({
       status: "success",
       pagination: {
@@ -55,13 +73,17 @@ export const categoriesController = {
         total: count ?? 0,
         totalPages: count ? Math.ceil(count / limit) : 0,
       },
-      data: { categories },
+      data: {
+        categories: transformed,
+        language: language?.code || null,
+      },
     });
   }),
 
   // GET /api/admin/categories/:id
   getById: catchAsync(async (req, res, next) => {
     const { id } = req.params;
+    const language = await resolveLanguageFromQuery(req);
 
     const { data: category, error } = await supabaseAdmin
       .from("service_categories")
@@ -72,9 +94,25 @@ export const categoriesController = {
     if (error || !category)
       return next(new AppError("Category not found", 404));
 
+    let transformed = category;
+    if (language && transformed) {
+      const categoryTrMap = await getTranslationsMap(
+        "category",
+        [transformed.id],
+        language.code,
+      );
+      transformed = applyEntityTranslation(
+        transformed,
+        categoryTrMap.get(Number(transformed.id)),
+      );
+    }
+
     return res.status(200).json({
       status: "success",
-      data: { category },
+      data: {
+        category: transformed,
+        language: language?.code || null,
+      },
     });
   }),
 
